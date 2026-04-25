@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Chat Mentor &mdash; Integration Sandbox</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="../sample-chat-agent/variables-common.css" />
+  <link rel="stylesheet" href="chooser.css" />
+</head>
+<body>
+  <main class="chooser">
+    <header class="chooser__head">
+      <img class="chooser__logo" src="skillable-logo.svg" alt="Skillable" width="110" height="40" />
+      <h1 class="chooser__title">AI Chat Mentor &mdash; Integration Sandbox</h1>
+      <p class="chooser__subtitle">
+        Welcome. This sandbox includes a <strong>lab simulator</strong> that
+        embeds an AI Chat Mentor iframe in a simulated Skillable lab, and a
+        <strong>sample chat agent</strong> you can load as a reference
+        implementation. Pick a flow below to begin.
+      </p>
+    </header>
+
+    <section class="chooser__cards">
+
+      <!-- ============ Card 1: Test a Mentor Agent ============ -->
+      <form class="card" id="card-test" autocomplete="off">
+        <div class="card__head">
+          <h2 class="card__title">Test a Mentor Agent</h2>
+          <p class="card__lede">
+            Embed your own mentor iframe in the simulated lab to drive it
+            through the full postMessage handshake and contract.
+          </p>
+        </div>
+
+        <label class="card__label" for="mentor-url">Mentor iframe URL</label>
+        <input
+          class="card__input"
+          id="mentor-url"
+          name="mentor-url"
+          type="url"
+          placeholder="https://localhost:5173"
+          required
+        />
+        <p class="card__hint">
+          Must be served over HTTPS in production. Localhost / dev URLs are
+          fine while you're building.
+        </p>
+
+        <button type="submit" class="card__cta card__cta--primary">
+          Open the simulated lab
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </form>
+
+      <!-- ============ Card 2: View a Sample Integration ============ -->
+      <div class="card">
+        <div class="card__head">
+          <h2 class="card__title">View a Sample Integration</h2>
+          <p class="card__lede">
+            Open the simulated lab with a pre-built reference mentor embedded
+            in it &mdash; the same one whose source ships in this repository.
+            Useful as a working example of the integration end-to-end.
+          </p>
+        </div>
+
+        <ul class="card__bullets">
+          <li>Exercises every <code>mentor.*</code> message in the contract.</li>
+          <li>Uses scripted (non-LLM) replies so the behavior is predictable.</li>
+          <li>No external dependencies beyond what this repo provides.</li>
+        </ul>
+
+        <button type="button" class="card__cta" id="btn-sample">
+          Open with the sample mentor
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <footer class="chooser__foot">
+      <p>
+        Reading the spec first?
+        See <a href="../../docs/mentor-integration-spec.md"><code>docs/mentor-integration-spec.md</code></a>.
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    // Two flows, same destination URL with different ?mentor= values.
+    const SAMPLE_MENTOR_URL = '/sample-chat-agent/';
+
+    function gotoLab(mentorUrl) {
+      const target = new URL('lab-simulator.html', window.location.href);
+      target.searchParams.set('mentor', mentorUrl);
+      window.location.assign(target.toString());
+    }
+
+    document.getElementById('card-test').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const url = document.getElementById('mentor-url').value.trim();
+      if (url) gotoLab(url);
+    });
+
+    document.getElementById('btn-sample').addEventListener('click', () => {
+      gotoLab(SAMPLE_MENTOR_URL);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+/* ---------------------------------------------------------------------------
+ * Chooser landing page for the integration sandbox.
+ * Two cards: "Test a Mentor Agent" (URL form) and "View a Sample Integration".
+ * Uses the same Skillable design tokens as the lab simulator (lab-simulator.css).
+ * ------------------------------------------------------------------------- */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0;
+  min-height: 100%;
+  font-family: var(--body-font-family);
+  font-size: var(--font-size-body-sm);
+  color: var(--text-primary);
+  background: var(--background-default);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: solid 3px var(--accent-main);
+  outline-offset: 1px;
+}
+
+.chooser {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 24px 80px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  min-height: 100vh;
+}
+
+/* ---- Header ---- */
+.chooser__head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 8px 0;
+  border-bottom: 4px solid var(--primary-dark);
+}
+.chooser__logo {
+  display: block;
+  height: 36px;
+  width: auto;
+  filter: invert(1);  /* logo SVG ships white-on-dark; invert for light mode */
+}
+:root[data-theme="dark"] .chooser__logo { filter: none; }
+.chooser__title {
+  font-family: var(--heading-font-family);
+  font-weight: 600;
+  font-size: var(--font-size-heading-md);
+  margin: 0;
+  color: var(--text-primary);
+}
+.chooser__subtitle {
+  margin: 0 auto;
+  max-width: 640px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-body-md);
+  line-height: 1.5;
+}
+
+/* ---- Cards ---- */
+.chooser__cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+@media (max-width: 760px) {
+  .chooser__cards { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--background-contrast-xs);
+  border: 1px solid var(--divider);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card__head { display: flex; flex-direction: column; gap: 6px; }
+.card__title {
+  font-family: var(--heading-font-family);
+  font-weight: 600;
+  font-size: var(--font-size-heading-xs);
+  margin: 0;
+  color: var(--text-primary);
+}
+.card__lede {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.card__label {
+  font-weight: 600;
+  font-size: var(--font-size-body-sm);
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+.card__input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--background-default);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+  border-radius: var(--border-radius);
+  padding: 10px 14px;
+  font-family: var(--mono-font-family);
+  font-size: var(--font-size-body-sm);
+}
+.card__input:focus {
+  outline: solid 3px var(--accent-main);
+  outline-offset: 1px;
+  border-color: var(--primary-main);
+}
+.card__hint {
+  margin: -4px 0 0 0;
+  font-size: var(--font-size-caption);
+  color: var(--text-light);
+}
+
+.card__bullets {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  flex: 1 1 auto;
+}
+.card__bullets code {
+  font-family: var(--mono-font-family);
+  background: var(--background-contrast-sm);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.card__cta {
+  margin-top: auto;
+  align-self: flex-start;
+  padding: 10px 18px;
+  font-family: var(--body-font-family);
+  font-weight: 500;
+  font-size: var(--font-size-body-sm);
+  background: transparent;
+  color: var(--primary-main);
+  border: 1px solid var(--primary-main);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 150ms ease;
+}
+.card__cta:hover { background: var(--accent-light); color: var(--accent-dark); }
+.card__cta--primary {
+  background: var(--primary-main);
+  color: var(--primary-contrast);
+}
+.card__cta--primary:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+  color: var(--primary-contrast);
+}
+
+/* ---- Footer ---- */
+.chooser__foot {
+  margin-top: auto;
+  text-align: center;
+  font-size: var(--font-size-caption);
+  color: var(--text-light);
+}
+.chooser__foot a { color: var(--primary-main); text-decoration: none; }
+.chooser__foot a:hover { text-decoration: underline; }
+.chooser__foot code {
+  font-family: var(--mono-font-family);
+  background: var(--background-contrast-sm);
+  padding: 1px 6px;
+  border-radius: 4px;
+}

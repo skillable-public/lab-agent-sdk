@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sample Lab &mdash; AI Chat Mentor Integration Demo</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="../sample-chat-agent/variables-common.css" />
+  <link rel="stylesheet" href="lab-simulator.css" />
+</head>
+<body>
+  <div class="lab-shell">
+
+    <!-- ================= TOP BAR ================= -->
+    <header class="lab-top">
+      <div class="lab-top__left">
+        <button type="button" class="lab-top__icon" aria-label="Expand"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg></button>
+        <button type="button" class="lab-top__icon" aria-label="Keyboard"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h12"/></svg></button>
+        <button type="button" class="lab-top__icon" aria-label="Clipboard"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/></svg></button>
+
+        <nav class="vm-tabs" role="tablist" aria-label="Environments">
+          <button type="button" class="vm-tab is-active" role="tab" aria-selected="true">Windows 11</button>
+          <button type="button" class="vm-tab"           role="tab" aria-selected="false">Ubuntu 26</button>
+        </nav>
+      </div>
+
+      <div class="lab-top__right">
+        <div class="brand">
+          <img class="brand__logo" src="/lab-simulator/skillable-logo.svg" alt="Skillable" width="88" height="33" />
+        </div>
+        <button type="button" class="exit-lab" id="btn-exit" aria-label="Exit Lab">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+          <span>Exit Lab</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= BODY ================= -->
+    <main class="lab-body">
+
+      <section class="lab-env" aria-label="Live environment">
+        <div class="env-canvas" id="env-canvas">
+          <!-- Absolute path so this resolves whether served from /lab-simulator/
+               or a different mount. A CSS background on .env-canvas acts as
+               a fallback while/if the SVG fails to load. -->
+          <img src="/lab-simulator/windows-desktop.svg" alt="Windows 11 desktop (mock screenshot)" />
+          <div class="env-toast" id="env-toast" role="status" aria-live="polite" hidden>
+            <div class="env-toast__title">Sent to environment</div>
+            <div class="env-toast__body" id="env-toast-body"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="lab-splitter" aria-hidden="true"></div>
+
+      <aside class="lab-side" aria-label="Lab side panel">
+
+        <div class="lab-tabs-row">
+          <nav class="lab-tabs" role="tablist" aria-label="Lab tabs">
+            <button type="button" class="lab-tab is-active" role="tab" aria-selected="true"  aria-controls="tab-instructions" id="tabbtn-instructions" data-tab="instructions">Instructions</button>
+            <button type="button" class="lab-tab"           role="tab" aria-selected="false" aria-controls="tab-resources"    id="tabbtn-resources"    data-tab="resources">Resources</button>
+            <button type="button" class="lab-tab"           role="tab" aria-selected="false" aria-controls="tab-mentor"       id="tabbtn-mentor"       data-tab="mentor"><span class="lab-tab__label">Mentor</span><span class="tab-badge" id="mentor-badge" hidden>1</span></button>
+          </nav>
+          <div class="lab-tabs__icons">
+            <button type="button" class="icon-btn" id="btn-help"     aria-label="Help"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></button>
+            <button type="button" class="icon-btn" id="btn-settings" aria-label="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          </div>
+        </div>
+
+        <div class="side-body">
+          <!-- Instructions: split panel - scrollable body + fixed footer.
+               Page body is injected by lab-simulator.js. -->
+          <section class="tab-panel tab-panel--split is-active" role="tabpanel" aria-labelledby="tabbtn-instructions" id="tab-instructions">
+            <div class="tab-panel__scroll">
+              <h1 class="lab-heading" id="lab-title">Sample Lab</h1>
+              <div class="lab-page" id="lab-page">
+                <!-- Populated by renderCurrentPage() -->
+              </div>
+              <div class="lab-actions">
+                <button type="button" class="button" id="btn-stuck">I&rsquo;m stuck &mdash; ask the mentor</button>
+              </div>
+            </div>
+
+            <!-- Fixed at the bottom of the Instructions tab (does not scroll) -->
+            <div class="nav-row">
+              <button type="button" class="nav-btn" id="btn-prev" disabled>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                <span>Previous</span>
+              </button>
+              <button type="button" class="nav-btn nav-btn--primary" id="btn-next">
+                <span>Next</span>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+            </div>
+          </section>
+
+          <!-- Resources -->
+          <section class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-resources" id="tab-resources" hidden>
+            <h1 class="lab-heading">Resources</h1>
+            <ul class="resource-list">
+              <li><a href="#">PowerShell cheatsheet</a><span class="muted">PDF &middot; 2 pages</span></li>
+              <li><a href="#">Windows 11 keyboard shortcuts</a><span class="muted">Web</span></li>
+              <li><a href="#">Lab repository</a><span class="muted">Git</span></li>
+            </ul>
+          </section>
+
+          <!-- Mentor (iframe only; no header/badge) -->
+          <section class="tab-panel tab-panel--flush" role="tabpanel" aria-labelledby="tabbtn-mentor" id="tab-mentor" hidden>
+            <iframe
+              id="mentor-iframe"
+              title="AI Chat Mentor"
+              src=""
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            ></iframe>
+          </section>
+
+          <!-- Settings overlay (opened by the gear icon) -->
+          <section class="overlay-panel" id="overlay-settings" hidden>
+            <header class="overlay-panel__head">
+              <span class="overlay-panel__title">Settings</span>
+              <button type="button" class="overlay-panel__close" aria-label="Close settings" data-close-overlay>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+              </button>
+            </header>
+
+            <div class="overlay-panel__body">
+              <section class="settings-section">
+                <h3 class="settings-section__title">DEVELOPER TOOLS</h3>
+                <ul class="settings-list">
+                  <li>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    <span>Edit Instructions</span>
+                  </li>
+                  <li>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="8 12 11 15 16 9"/></svg>
+                    <span>Commit Changes</span>
+                  </li>
+                  <li>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Install Integration Service</span>
+                  </li>
+                </ul>
+              </section>
+
+              <hr class="settings-divider" />
+
+              <section class="settings-section">
+                <h3 class="settings-section__title">TEXT SIZE</h3>
+                <ul class="settings-list settings-list--check" role="radiogroup" aria-label="Text size">
+                  <li class="is-selected" data-text-size="standard">
+                    <span class="check-mark">&#10003;</span>
+                    <span>Standard</span>
+                  </li>
+                  <li data-text-size="large">
+                    <span class="check-mark"></span>
+                    <span class="text-lg">Large Text</span>
+                  </li>
+                  <li data-text-size="xlarge">
+                    <span class="check-mark"></span>
+                    <span class="text-xl">Extra Large Text</span>
+                  </li>
+                </ul>
+              </section>
+
+              <hr class="settings-divider" />
+
+              <section class="settings-section">
+                <h3 class="settings-section__title">COLOR MODE</h3>
+                <label class="sr-only" for="color-mode">Color mode</label>
+                <div class="select-wrap">
+                  <select id="color-mode" class="select">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="high-contrast">High Contrast</option>
+                  </select>
+                  <svg class="select-caret" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </div>
+                <p class="settings-hint">Changing this posts <code>host.theme.change</code> to the Mentor iframe in real time.</p>
+              </section>
+
+              <hr class="settings-divider" />
+
+              <section class="settings-section">
+                <ul class="settings-list">
+                  <li>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                    <span>Share</span>
+                  </li>
+                  <li>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    <span>Transfer</span>
+                  </li>
+                </ul>
+              </section>
+
+              <hr class="settings-divider" />
+
+              <section class="settings-section">
+                <h3 class="settings-section__title">SAMPLE HOST</h3>
+                <label class="settings-toggle">
+                  <input type="checkbox" id="evt-log-toggle" />
+                  <span>Show postMessage event log</span>
+                </label>
+              </section>
+            </div>
+          </section>
+
+          <!-- Help overlay -->
+          <section class="overlay-panel" id="overlay-help" hidden>
+            <header class="overlay-panel__head">
+              <span class="overlay-panel__title">Help</span>
+              <button type="button" class="overlay-panel__close" aria-label="Close help" data-close-overlay>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+              </button>
+            </header>
+            <div class="overlay-panel__body">
+              <h3 class="settings-section__title">IF YOU&rsquo;RE STUCK</h3>
+              <ol class="help-list">
+                <li>Re-read the current step in the <strong>Instructions</strong> tab.</li>
+                <li>Open the <strong>Mentor</strong> tab and ask a specific question.</li>
+                <li>Check the <strong>Resources</strong> tab for references.</li>
+                <li>Reach out to your instructor via the support portal.</li>
+              </ol>
+            </div>
+          </section>
+        </div>
+
+        <footer class="lab-side__footer">
+          <div class="timer" id="lab-timer">7 Hr 58 Min Remaining</div>
+        </footer>
+      </aside>
+    </main>
+
+    <!-- Floating event log (opt-in via Settings). Draggable by its header,
+         resizable from any edge or corner via the handles below. -->
+    <section class="event-log" id="event-log-panel" hidden>
+      <div class="event-log__handle event-log__handle--n"  data-resize="n"></div>
+      <div class="event-log__handle event-log__handle--s"  data-resize="s"></div>
+      <div class="event-log__handle event-log__handle--e"  data-resize="e"></div>
+      <div class="event-log__handle event-log__handle--w"  data-resize="w"></div>
+      <div class="event-log__handle event-log__handle--ne" data-resize="ne"></div>
+      <div class="event-log__handle event-log__handle--nw" data-resize="nw"></div>
+      <div class="event-log__handle event-log__handle--se" data-resize="se"></div>
+      <div class="event-log__handle event-log__handle--sw" data-resize="sw"></div>
+      <header id="event-log-drag-handle">
+        <h2>postMessage event log</h2>
+        <button type="button" class="button" id="btn-clear-log">Clear</button>
+      </header>
+      <div class="event-log__entries" id="event-log" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <script src="lab-simulator.js"></script>
+</body>
+</html>

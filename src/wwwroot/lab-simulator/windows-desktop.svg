@@ -1,0 +1,389 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Windows 11 desktop mockup">
+  <defs>
+    <!-- Windows 11 signature wallpaper: radial blooms over deep blue -->
+    <radialGradient id="wall" cx="50%" cy="55%" r="80%">
+      <stop offset="0"   stop-color="#5A8FE0"/>
+      <stop offset="0.45" stop-color="#2A5AA8"/>
+      <stop offset="1"   stop-color="#0E1F3C"/>
+    </radialGradient>
+    <radialGradient id="bloom1" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bloom2" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#A7D4FF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#A7D4FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bloom3" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFB07A" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFB07A" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <linearGradient id="taskbar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"  stop-color="#2A2A2A" stop-opacity="0.82"/>
+      <stop offset="1"  stop-color="#141414" stop-opacity="0.94"/>
+    </linearGradient>
+
+    <linearGradient id="win" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"  stop-color="#262626"/>
+      <stop offset="1"  stop-color="#1B1B1B"/>
+    </linearGradient>
+
+    <linearGradient id="winbar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#323232"/>
+      <stop offset="1" stop-color="#292929"/>
+    </linearGradient>
+
+    <filter id="drop" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="soft" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Wallpaper -->
+  <rect width="1920" height="1080" fill="url(#wall)"/>
+  <ellipse cx="960" cy="560" rx="900" ry="560" fill="url(#bloom1)"/>
+  <ellipse cx="540" cy="360" rx="420" ry="260" fill="url(#bloom2)"/>
+  <ellipse cx="1420" cy="700" rx="500" ry="300" fill="url(#bloom3)"/>
+
+  <!-- Decorative ribbons (soft Windows 11 motif) -->
+  <g opacity="0.35">
+    <path d="M-50,680 C260,600 520,780 880,680 C1200,590 1520,720 1980,660 L1980,1080 L-50,1080 Z" fill="#0C1F3A"/>
+    <path d="M-50,780 C280,720 560,860 920,760 C1240,690 1560,800 1980,760 L1980,1080 L-50,1080 Z" fill="#081629" opacity="0.8"/>
+  </g>
+
+  <!-- ===================== Desktop icons (left column) ===================== -->
+  <g font-family="Segoe UI, sans-serif" font-size="13" fill="#FFFFFF">
+    <!-- Recycle Bin -->
+    <g transform="translate(56,60)">
+      <rect width="76" height="76" rx="10" fill="url(#tile)" filter="url(#soft)"/>
+      <g transform="translate(18,18)" stroke="#FFFFFF" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 10 h28 l-2 24 a2 2 0 0 1 -2 2 H10 a2 2 0 0 1 -2 -2 Z"/>
+        <path d="M4 10 h32"/>
+        <path d="M14 6 h12 a2 2 0 0 1 2 2 v2 H12 V8 a2 2 0 0 1 2 -2 Z"/>
+        <path d="M14 16 v14 M26 16 v14 M20 16 v14"/>
+      </g>
+      <text x="38" y="96" text-anchor="middle">Recycle Bin</text>
+    </g>
+
+    <!-- This PC -->
+    <g transform="translate(56,180)">
+      <rect width="76" height="76" rx="10" fill="url(#tile)" filter="url(#soft)"/>
+      <g transform="translate(16,22)">
+        <rect width="44" height="32" rx="2" fill="#2F7FBF" stroke="#6BB6F0" stroke-width="1.5"/>
+        <rect x="4" y="4" width="36" height="24" fill="#0E2C4E"/>
+        <rect x="12" y="34" width="20" height="4" fill="#6BB6F0"/>
+      </g>
+      <text x="38" y="96" text-anchor="middle">This PC</text>
+    </g>
+
+    <!-- Edge -->
+    <g transform="translate(56,300)">
+      <rect width="76" height="76" rx="10" fill="url(#tile)" filter="url(#soft)"/>
+      <g transform="translate(16,16)">
+        <circle cx="22" cy="22" r="22" fill="#0A6BC1"/>
+        <path d="M6,26 A18,18 0 0 1 38,20 L42,20 A22,22 0 0 0 6,28 Z" fill="#3AA6FF"/>
+      </g>
+      <text x="38" y="96" text-anchor="middle">Edge</text>
+    </g>
+
+    <!-- VS Code -->
+    <g transform="translate(56,420)">
+      <rect width="76" height="76" rx="10" fill="url(#tile)" filter="url(#soft)"/>
+      <g transform="translate(18,18)">
+        <path d="M36 4 L14 22 L6 16 L0 22 L14 36 L36 54 L44 50 V8 Z" fill="#0B7FD1" transform="scale(0.9)"/>
+      </g>
+      <text x="38" y="96" text-anchor="middle">VS Code</text>
+    </g>
+
+    <!-- Terminal -->
+    <g transform="translate(56,540)">
+      <rect width="76" height="76" rx="10" fill="url(#tile)" filter="url(#soft)"/>
+      <g transform="translate(14,18)">
+        <rect width="48" height="40" rx="4" fill="#0E0E0E" stroke="#2A2A2A"/>
+        <text x="6" y="20" font-family="JetBrains Mono, monospace" font-size="13" fill="#00CA72">&gt;_</text>
+      </g>
+      <text x="38" y="96" text-anchor="middle">Terminal</text>
+    </g>
+
+    <!-- Docs folder -->
+    <g transform="translate(56,660)">
+      <rect width="76" height="76" rx="10" fill="url(#tile)" filter="url(#soft)"/>
+      <g transform="translate(10,20)">
+        <path d="M2 10 H18 L22 6 H54 A3 3 0 0 1 57 9 V36 A3 3 0 0 1 54 39 H2 Z" fill="#FFC766" stroke="#8B5A00" stroke-width="1.3"/>
+        <path d="M2 12 H57" stroke="#FFD98E" opacity="0.8"/>
+      </g>
+      <text x="38" y="96" text-anchor="middle">Lab files</text>
+    </g>
+  </g>
+
+  <!-- ===================== "Learn about this picture" (top-right) ===================== -->
+  <g transform="translate(1740,44)" filter="url(#soft)">
+    <rect width="140" height="130" rx="10" fill="#1F1F1F" opacity="0.65"/>
+    <g transform="translate(52,24)">
+      <circle cx="18" cy="18" r="18" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+      <circle cx="12" cy="14" r="3.2" fill="#FFFFFF" opacity="0.9"/>
+      <path d="M4 30 L15 18 L23 25 L29 20 L34 30 Z" fill="#FFFFFF" opacity="0.85"/>
+    </g>
+    <text x="70" y="90" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#FFFFFF">Learn about</text>
+    <text x="70" y="106" text-anchor="middle" font-family="Segoe UI, sans-serif" font-size="12" fill="#FFFFFF">this picture</text>
+  </g>
+
+  <!-- ===================== Open window 1: File Explorer ===================== -->
+  <g transform="translate(260,120)" filter="url(#drop)">
+    <rect width="780" height="480" rx="10" fill="url(#win)"/>
+    <!-- Title bar -->
+    <rect width="780" height="36" rx="10" fill="url(#winbar)"/>
+    <rect y="26" width="780" height="10" fill="url(#winbar)"/>
+    <g font-family="Segoe UI, sans-serif" font-size="13" fill="#EDEDED">
+      <text x="14" y="23">This PC &gt; Users &gt; student</text>
+    </g>
+    <!-- Window controls -->
+    <g transform="translate(712,10)" stroke="#D0D0D0" stroke-width="1.4" fill="none">
+      <line x1="4" y1="10" x2="14" y2="10"/>
+      <rect x="24" y="4" width="12" height="12"/>
+      <path d="M46 4 L58 16 M58 4 L46 16"/>
+    </g>
+    <!-- Toolbar -->
+    <rect y="38" width="780" height="40" fill="#1F1F1F"/>
+    <g transform="translate(14,54)" font-family="Segoe UI, sans-serif" font-size="12" fill="#EDEDED">
+      <text x="0" y="6">New</text>
+      <rect x="40" y="-10" width="1" height="20" fill="#444"/>
+      <text x="52" y="6">Cut</text>
+      <text x="84" y="6">Copy</text>
+      <text x="122" y="6">Paste</text>
+      <rect x="170" y="-10" width="1" height="20" fill="#444"/>
+      <text x="182" y="6">Sort</text>
+      <text x="218" y="6">View</text>
+    </g>
+
+    <!-- Sidebar -->
+    <rect x="0" y="78" width="200" height="402" fill="#1A1A1A"/>
+    <g font-family="Segoe UI, sans-serif" font-size="12" fill="#DADADA">
+      <text x="18" y="108" font-weight="600" fill="#9ACDFF">Quick access</text>
+      <text x="18" y="134">Desktop</text>
+      <text x="18" y="158">Documents</text>
+      <text x="18" y="182">Downloads</text>
+      <text x="18" y="206">Pictures</text>
+      <text x="18" y="234" font-weight="600" fill="#9ACDFF">This PC</text>
+      <text x="18" y="260">Local Disk (C:)</text>
+      <text x="18" y="284">Data (D:)</text>
+      <text x="18" y="312" font-weight="600" fill="#9ACDFF">Network</text>
+    </g>
+
+    <!-- File list -->
+    <rect x="200" y="78" width="580" height="26" fill="#252525"/>
+    <g font-family="Segoe UI, sans-serif" font-size="11" fill="#AAAAAA">
+      <text x="218" y="96">Name</text>
+      <text x="430" y="96">Date modified</text>
+      <text x="580" y="96">Type</text>
+      <text x="700" y="96">Size</text>
+    </g>
+
+    <!-- Rows -->
+    <g font-family="Segoe UI, sans-serif" font-size="12" fill="#EDEDED">
+      <!-- Folder rows -->
+      <g transform="translate(218,122)">
+        <path d="M0 0 H6 L9 -3 H22 V12 H0 Z" fill="#FFC766"/>
+        <text x="30" y="10">Desktop</text>
+        <text x="212" y="10">4/24/2026 9:02 AM</text>
+        <text x="362" y="10">File folder</text>
+      </g>
+      <g transform="translate(218,150)">
+        <path d="M0 0 H6 L9 -3 H22 V12 H0 Z" fill="#FFC766"/>
+        <text x="30" y="10">Documents</text>
+        <text x="212" y="10">4/24/2026 9:02 AM</text>
+        <text x="362" y="10">File folder</text>
+      </g>
+      <g transform="translate(218,178)">
+        <path d="M0 0 H6 L9 -3 H22 V12 H0 Z" fill="#FFC766"/>
+        <text x="30" y="10">Downloads</text>
+        <text x="212" y="10">4/24/2026 9:02 AM</text>
+        <text x="362" y="10">File folder</text>
+      </g>
+      <g transform="translate(218,206)">
+        <path d="M0 0 H6 L9 -3 H22 V12 H0 Z" fill="#FFC766"/>
+        <text x="30" y="10">Pictures</text>
+        <text x="212" y="10">4/24/2026 9:02 AM</text>
+        <text x="362" y="10">File folder</text>
+      </g>
+      <!-- File rows -->
+      <g transform="translate(218,234)">
+        <rect width="16" height="18" y="-10" fill="#2F7FBF" stroke="#6BB6F0" stroke-width="1"/>
+        <text x="6" y="2" font-size="9" fill="#FFFFFF" font-weight="700" text-anchor="start">TXT</text>
+        <text x="30" y="4">hello.txt</text>
+        <text x="212" y="4">4/24/2026 9:35 AM</text>
+        <text x="362" y="4">Text Document</text>
+        <text x="500" y="4">1 KB</text>
+      </g>
+      <g transform="translate(218,264)">
+        <rect width="16" height="18" y="-10" fill="#2F7FBF" stroke="#6BB6F0" stroke-width="1"/>
+        <text x="6" y="2" font-size="9" fill="#FFFFFF" font-weight="700" text-anchor="start">PS1</text>
+        <text x="30" y="4">setup.ps1</text>
+        <text x="212" y="4">4/23/2026 4:18 PM</text>
+        <text x="362" y="4">PowerShell Script</text>
+        <text x="500" y="4">4 KB</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- ===================== Open window 2: Windows Terminal (PowerShell) ===================== -->
+  <g transform="translate(1080,200)" filter="url(#drop)">
+    <rect width="760" height="520" rx="10" fill="#1B1B1B"/>
+    <rect width="760" height="36" rx="10" fill="#2B2B2B"/>
+    <rect y="26" width="760" height="10" fill="#2B2B2B"/>
+    <text x="14" y="23" font-family="Segoe UI, sans-serif" font-size="13" fill="#DADADA">Windows Terminal &#8212; PowerShell</text>
+    <!-- Window controls -->
+    <g transform="translate(692,10)" stroke="#D0D0D0" stroke-width="1.4" fill="none">
+      <line x1="4" y1="10" x2="14" y2="10"/>
+      <rect x="24" y="4" width="12" height="12"/>
+      <path d="M46 4 L58 16 M58 4 L46 16"/>
+    </g>
+    <!-- Tab bar -->
+    <rect y="36" width="760" height="28" fill="#1F1F1F"/>
+    <g font-family="Segoe UI, sans-serif" font-size="12">
+      <rect x="10" y="40" width="130" height="24" rx="4" fill="#1B1B1B"/>
+      <text x="22" y="56" fill="#EDEDED">PowerShell</text>
+      <text x="150" y="56" fill="#888">+</text>
+    </g>
+
+    <!-- Terminal content -->
+    <g font-family="JetBrains Mono, Consolas, monospace" font-size="13" fill="#E0E0E0">
+      <text x="18" y="92"><tspan fill="#00CA72">PS C:\Users\student&gt;</tspan> whoami</text>
+      <text x="18" y="114">lab\student</text>
+      <text x="18" y="140"><tspan fill="#00CA72">PS C:\Users\student&gt;</tspan> Get-ChildItem</text>
+      <text x="18" y="172" fill="#BBBBBB">    Directory: C:\Users\student</text>
+      <text x="18" y="200"><tspan fill="#9CDCFE">Mode</tspan>    <tspan fill="#9CDCFE">LastWriteTime</tspan>        <tspan fill="#9CDCFE">Length Name</tspan></text>
+      <text x="18" y="220" fill="#808080">----    -------------         ------ ----</text>
+      <text x="18" y="244">d-----   4/24/2026  9:02 AM           Desktop</text>
+      <text x="18" y="264">d-----   4/24/2026  9:02 AM           Documents</text>
+      <text x="18" y="284">d-----   4/24/2026  9:02 AM           Downloads</text>
+      <text x="18" y="304">d-----   4/24/2026  9:02 AM           Pictures</text>
+      <text x="18" y="324">-a----   4/24/2026  9:35 AM     214   hello.txt</text>
+      <text x="18" y="344">-a----   4/23/2026  4:18 PM    3840   setup.ps1</text>
+      <text x="18" y="382"><tspan fill="#00CA72">PS C:\Users\student&gt;</tspan> Get-Process | Select-Object -First 3</text>
+      <text x="18" y="414" fill="#BBBBBB">Handles  NPM(K)    PM(K)      WS(K) CPU(s)     Id  SI ProcessName</text>
+      <text x="18" y="434" fill="#808080">-------  ------    -----      ----- ------     -- -- -----------</text>
+      <text x="18" y="454">    512      30    18240      22112  0.31   4120   1 chrome</text>
+      <text x="18" y="474">    389      21    12480      14228  0.22   5248   1 explorer</text>
+      <text x="18" y="494">    128      11     4096       6080  0.04   1072   0 svchost</text>
+    </g>
+  </g>
+
+  <!-- ===================== Taskbar ===================== -->
+  <rect y="1032" width="1920" height="48" fill="url(#taskbar)"/>
+
+  <!-- News / weather widget (bottom-left) -->
+  <g transform="translate(18,1036)" font-family="Segoe UI, sans-serif">
+    <rect x="0" y="4" width="40" height="40" rx="6" fill="#E53935"/>
+    <g transform="translate(6,14)" fill="#FFFFFF" font-size="10">
+      <text x="0" y="6" font-weight="700">NEWS</text>
+      <rect x="0" y="10" width="28" height="2" fill="#FFFFFF" opacity="0.85"/>
+      <rect x="0" y="16" width="22" height="2" fill="#FFFFFF" opacity="0.85"/>
+      <rect x="0" y="22" width="24" height="2" fill="#FFFFFF" opacity="0.85"/>
+    </g>
+    <text x="50" y="24" font-size="12" fill="#FFFFFF" font-weight="600">Breaking news</text>
+    <text x="50" y="40" font-size="11" fill="#BDBDBD">Justice Departm&#8230;</text>
+  </g>
+
+  <!-- Centered taskbar icons -->
+  <g transform="translate(790,1040)">
+    <!-- Start (Win logo) -->
+    <g transform="translate(0,8)">
+      <rect x="0"  y="0"  width="12" height="12" fill="#41B3FF"/>
+      <rect x="14" y="0"  width="12" height="12" fill="#41B3FF"/>
+      <rect x="0"  y="14" width="12" height="12" fill="#41B3FF"/>
+      <rect x="14" y="14" width="12" height="12" fill="#41B3FF"/>
+    </g>
+    <!-- Search pill -->
+    <g transform="translate(40,6)">
+      <rect width="190" height="32" rx="16" fill="#1A1A1A" stroke="#3A3A3A"/>
+      <circle cx="16" cy="16" r="6" fill="none" stroke="#CCC" stroke-width="1.5"/>
+      <line x1="21" y1="21" x2="26" y2="26" stroke="#CCC" stroke-width="1.5"/>
+      <text x="34" y="20" font-family="Segoe UI, sans-serif" font-size="12" fill="#BDBDBD">Search</text>
+    </g>
+    <!-- Widgets (weather) -->
+    <g transform="translate(242,6)">
+      <rect width="66" height="32" rx="6" fill="#0E6DAF"/>
+      <circle cx="16" cy="16" r="7" fill="#FFC94A"/>
+      <path d="M30 20 q6 -10 14 -4 q6 -3 10 3" fill="none" stroke="#FFFFFF" stroke-width="2"/>
+      <text x="30" y="29" font-family="Segoe UI, sans-serif" font-size="9" fill="#FFFFFF">62°</text>
+    </g>
+    <!-- Copilot -->
+    <g transform="translate(320,8)">
+      <rect width="30" height="28" rx="6" fill="#1A1A1A" stroke="#3A3A3A"/>
+      <g transform="translate(6,4)">
+        <path d="M9 2 L12 8 L18 8 L13 12 L15 18 L9 14 L3 18 L5 12 L0 8 L6 8 Z" fill="#00D8C8"/>
+      </g>
+    </g>
+    <!-- File Explorer -->
+    <g transform="translate(356,8)">
+      <rect width="30" height="28" rx="6" fill="#1A1A1A" stroke="#3A3A3A"/>
+      <path d="M6 12 H12 L14 10 H22 V20 H6 Z" fill="#FFC766"/>
+      <path d="M6 13 H22" stroke="#FFD98E"/>
+    </g>
+    <!-- Edge -->
+    <g transform="translate(392,8)">
+      <rect width="30" height="28" rx="6" fill="#1A1A1A" stroke="#3A3A3A"/>
+      <circle cx="15" cy="14" r="10" fill="#0A6BC1"/>
+      <path d="M7 16 A9 9 0 0 1 25 12 L22 14 A7 7 0 0 0 9 16 Z" fill="#3AA6FF"/>
+    </g>
+    <!-- Store -->
+    <g transform="translate(428,8)">
+      <rect width="30" height="28" rx="6" fill="#1A1A1A" stroke="#3A3A3A"/>
+      <g transform="translate(7,6)" fill="#3AA6FF">
+        <rect x="0" y="0" width="7" height="7"/>
+        <rect x="9" y="0" width="7" height="7"/>
+        <rect x="0" y="9" width="7" height="7"/>
+        <rect x="9" y="9" width="7" height="7"/>
+      </g>
+    </g>
+    <!-- Terminal (active indicator underline) -->
+    <g transform="translate(464,8)">
+      <rect width="30" height="28" rx="6" fill="#232323" stroke="#444"/>
+      <text x="7" y="19" font-family="JetBrains Mono, monospace" font-size="12" fill="#00CA72">&gt;_</text>
+      <rect x="8" y="34" width="14" height="2" fill="#00CA72" rx="1"/>
+    </g>
+    <!-- VS Code (active indicator underline) -->
+    <g transform="translate(500,8)">
+      <rect width="30" height="28" rx="6" fill="#232323" stroke="#444"/>
+      <g transform="translate(5,5)">
+        <path d="M18 0 L8 8 L4 5 L0 8 L8 16 L18 22 L22 20 V2 Z" fill="#0B7FD1" transform="scale(0.9)"/>
+      </g>
+      <rect x="8" y="34" width="14" height="2" fill="#00CA72" rx="1"/>
+    </g>
+  </g>
+
+  <!-- System tray (right) -->
+  <g transform="translate(1700,1040)" fill="#EDEDED" font-family="Segoe UI, sans-serif">
+    <!-- caret up -->
+    <path d="M0 22 l6 -6 l6 6" stroke="#CCC" fill="none" stroke-width="1.6"/>
+    <!-- wifi off -->
+    <g transform="translate(28,0)">
+      <path d="M0 20 a10 10 0 0 1 20 0" stroke="#CCC" fill="none" stroke-width="1.6"/>
+      <circle cx="10" cy="22" r="2" fill="#CCC"/>
+      <line x1="0" y1="6" x2="20" y2="26" stroke="#E57373" stroke-width="1.8"/>
+    </g>
+    <!-- monitor icon -->
+    <g transform="translate(62,8)" stroke="#CCC" fill="none" stroke-width="1.6">
+      <rect x="0" y="0" width="20" height="14" rx="1"/>
+      <line x1="4" y1="18" x2="16" y2="18"/>
+    </g>
+    <!-- speaker muted -->
+    <g transform="translate(94,8)" stroke="#CCC" fill="none" stroke-width="1.6">
+      <path d="M0 4 h4 l6 -4 v20 l-6 -4 h-4 z"/>
+      <line x1="-2" y1="0" x2="16" y2="18" stroke="#E57373"/>
+    </g>
+    <!-- clock -->
+    <text x="128" y="16" font-size="12">12:29 PM</text>
+    <text x="128" y="32" font-size="11" fill="#BDBDBD">4/24/2026</text>
+  </g>
+</svg>
