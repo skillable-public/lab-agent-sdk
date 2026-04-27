@@ -45,9 +45,7 @@ html, body {
   display: block;
   height: 36px;
   width: auto;
-  filter: invert(1);  /* logo SVG ships white-on-dark; invert for light mode */
 }
-:root[data-theme="dark"] .chooser__logo { filter: none; }
 .chooser__title {
   font-family: var(--heading-font-family);
   font-weight: 600;
