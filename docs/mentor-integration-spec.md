@@ -491,6 +491,14 @@ within a page are a lab-authoring concept and are not modeled here.
 All fields are optional. Build your mentor to degrade gracefully when
 any one is missing, and to re-ground on every update.
 
+**Timing note.** Some fields — `environment` in particular — depend on
+lab subsystems that may not be ready when the lab fires `host.init`. The
+host is expected to send `host.init` eagerly on receipt of `mentor.ready`
+with whatever context is available at that moment, and then deliver the
+remaining fields via a follow-up `host.context.update` once they
+populate. Treat `environment` (and any field) as *may arrive later* — do
+not assume the value present in `host.init` is final.
+
 Example:
 
 ```jsonc
