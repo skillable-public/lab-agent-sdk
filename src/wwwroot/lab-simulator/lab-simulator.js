@@ -288,7 +288,6 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
       totalPages: lab.pages.length,
       pageTitle: heading ?? undefined,             // omit when the page has no heading
       pageInstructions: md,                        // raw markdown
-      progress: `${currentPageIndex + 1}/${lab.pages.length}`,
       environment: { os: 'windows-11', shell: 'powershell', cwd: 'C:\\Users\\student' },
     };
   }

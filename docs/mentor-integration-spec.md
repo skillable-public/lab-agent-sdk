@@ -486,7 +486,6 @@ within a page are a lab-authoring concept and are not modeled here.
 | `totalPages`       | integer?                     | Total number of pages. |
 | `pageTitle`        | string?                      | The page's heading text, if it starts with one. When absent, display as `Page {currentPageIndex + 1}`. |
 | `pageInstructions` | string?                      | Current page body as **markdown**. Use this to ground mentor responses. |
-| `progress`         | string?                      | Opaque progress marker (`"3/10"`, `"35%"`, etc.). |
 | `environment`      | `{ [key: string]: string }`? | Free-form facts (OS, shell, cwd, last command, etc.). |
 
 All fields are optional. Build your mentor to degrade gracefully when
@@ -502,7 +501,6 @@ Example:
   "totalPages": 4,
   "pageTitle": "List files in your home directory",
   "pageInstructions": "# List files\n\nRun `ls -la` to see hidden files\u2026",
-  "progress": "2/4",
   "environment": { "os": "ubuntu-22.04", "shell": "bash", "cwd": "/home/student" }
 }
 ```
