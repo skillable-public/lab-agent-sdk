@@ -319,12 +319,35 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     return null;
   })();
 
+  // --- Session persistence -------------------------------------------------
+  //
+  // The mentor backend mints sessionIds; we just round-trip them. We persist
+  // the most recent id keyed by (labId, mentor origin) so a refresh — or even
+  // closing and reopening the lab — resumes the same conversation. The id
+  // arrives via the `sessionId` field on the mentor.ready payload (see
+  // integration spec section 8).
+  const MENTOR_ORIGIN = MENTOR_URL ? new URL(MENTOR_URL, window.location.href).origin : '';
+  const SESSION_STORAGE_KEY = `mentor-session::${lab.labId}::${MENTOR_ORIGIN}`;
+  function getStoredSessionId() {
+    try { return localStorage.getItem(SESSION_STORAGE_KEY) || null; }
+    catch { return null; }
+  }
+  function setStoredSessionId(id) {
+    try {
+      if (id) localStorage.setItem(SESSION_STORAGE_KEY, id);
+      else localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch { /* private mode etc.; persistence is best-effort */ }
+  }
+
   function iframeUrl() {
     // Resolve the (possibly-relative) mentor URL against this page first,
-    // then layer on parentOrigin and theme as additional query params.
+    // then layer on parentOrigin, theme, and (if we have one stored) the
+    // resume sessionId as additional query params.
     const base = new URL(MENTOR_URL, window.location.href);
     base.searchParams.set('parentOrigin', window.location.origin);
     base.searchParams.set('theme', currentIframeTheme());
+    const stored = getStoredSessionId();
+    if (stored) base.searchParams.set('sessionId', stored);
     return base.toString();
   }
   function ensureMentorLoaded() {
@@ -354,8 +377,14 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           $bridgeStatus.textContent = 'Connected';
           $bridgeStatus.classList.add('is-connected');
         }
+        // The chat agent has finished creating / resuming its session by
+        // the time it sends mentor.ready. Capture the sessionId from the
+        // payload so we can round-trip it on the next iframe load (URL
+        // ?sessionId=…) and resume the same conversation across refreshes
+        // and lab save/resume.
+        if (msg.payload?.sessionId) setStoredSessionId(msg.payload.sessionId);
         post(OUT.INIT, {
-          sessionId: null,
+          sessionId: getStoredSessionId(),
           userName: 'Chris',
           theme: currentIframeTheme(),
           locale: 'en',
