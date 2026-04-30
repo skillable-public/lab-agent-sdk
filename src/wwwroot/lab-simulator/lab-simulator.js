@@ -25,6 +25,7 @@
   // Inbound (chat -> host)
   const IN = {
     READY:              'mentor.ready',
+    SESSION_OPENED:     'mentor.session.opened',
     GOTO_PAGE:          'mentor.gotoInstructionsPage',
     SEND_TEXT:          'mentor.sendTextToEnvironment',
     MESSAGE_SENT:       'mentor.message.sent',
@@ -321,33 +322,68 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
 
   // --- Session persistence -------------------------------------------------
   //
-  // The mentor backend mints sessionIds; we just round-trip them. We persist
-  // the most recent id keyed by (labId, mentor origin) so a refresh — or even
-  // closing and reopening the lab — resumes the same conversation. The id
-  // arrives via the `sessionId` field on the mentor.ready payload (see
-  // integration spec section 8).
+  // The mentor iframe owns the sessionId namespace; our job is to round-trip
+  // it. The handoff is entirely over postMessage — there is no URL handoff
+  // (per integration spec section 6). The flow is:
+  //
+  //   1. We mint a stable labInstanceId on first load and persist it. This
+  //      is the host's id for the student's lab attempt; it survives
+  //      refresh and lab save/resume.
+  //   2. On every iframe load we send labInstanceId on host.init, plus any
+  //      sessionId we previously stored under it.
+  //   3. The chat resolves its session and replies with
+  //      mentor.session.opened { sessionId }. We capture that id and
+  //      persist it under labInstanceId for next time.
+  //
+  // We use the lab id + mentor origin as the persistence scope so swapping
+  // mentors or reloading a different lab in the same browser starts fresh.
   const MENTOR_ORIGIN = MENTOR_URL ? new URL(MENTOR_URL, window.location.href).origin : '';
-  const SESSION_STORAGE_KEY = `mentor-session::${lab.labId}::${MENTOR_ORIGIN}`;
-  function getStoredSessionId() {
-    try { return localStorage.getItem(SESSION_STORAGE_KEY) || null; }
+  const PERSISTENCE_SCOPE = `${lab.labId}::${MENTOR_ORIGIN}`;
+  const LAB_INSTANCE_KEY = `lab-instance::${PERSISTENCE_SCOPE}`;
+
+  function newLabInstanceId() {
+    // Reasonably unique opaque id — adequate for a demo. Real hosts have
+    // their own attempt-id schemes (database row, server-generated UUID, etc).
+    return 'li_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+  function getLabInstanceId() {
+    try {
+      let id = localStorage.getItem(LAB_INSTANCE_KEY);
+      if (!id) {
+        id = newLabInstanceId();
+        localStorage.setItem(LAB_INSTANCE_KEY, id);
+      }
+      return id;
+    } catch {
+      // Private mode etc.; fall back to a session-scoped id so we still
+      // produce a stable value within this page lifetime.
+      return getLabInstanceId._fallback ||= newLabInstanceId();
+    }
+  }
+  // Each persisted sessionId lives under the labInstanceId so multiple
+  // attempts (same student, same lab, different runs) don't collide.
+  function sessionStorageKey(labInstanceId) {
+    return `mentor-session::${PERSISTENCE_SCOPE}::${labInstanceId}`;
+  }
+  function getStoredSessionId(labInstanceId) {
+    try { return localStorage.getItem(sessionStorageKey(labInstanceId)) || null; }
     catch { return null; }
   }
-  function setStoredSessionId(id) {
+  function setStoredSessionId(labInstanceId, id) {
     try {
-      if (id) localStorage.setItem(SESSION_STORAGE_KEY, id);
-      else localStorage.removeItem(SESSION_STORAGE_KEY);
-    } catch { /* private mode etc.; persistence is best-effort */ }
+      if (id) localStorage.setItem(sessionStorageKey(labInstanceId), id);
+      else localStorage.removeItem(sessionStorageKey(labInstanceId));
+    } catch { /* persistence is best-effort */ }
   }
 
   function iframeUrl() {
     // Resolve the (possibly-relative) mentor URL against this page first,
-    // then layer on parentOrigin, theme, and (if we have one stored) the
-    // resume sessionId as additional query params.
+    // then layer on parentOrigin and theme. Note: sessionId / labInstanceId
+    // are NOT URL parameters — they travel through postMessage (host.init
+    // -> mentor.session.opened) per the integration spec.
     const base = new URL(MENTOR_URL, window.location.href);
     base.searchParams.set('parentOrigin', window.location.origin);
     base.searchParams.set('theme', currentIframeTheme());
-    const stored = getStoredSessionId();
-    if (stored) base.searchParams.set('sessionId', stored);
     return base.toString();
   }
   function ensureMentorLoaded() {
@@ -372,25 +408,36 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     log('chat \u2192 host', msg.type, msg.payload);
 
     switch (msg.type) {
-      case IN.READY:
+      case IN.READY: {
         if ($bridgeStatus) {
           $bridgeStatus.textContent = 'Connected';
           $bridgeStatus.classList.add('is-connected');
         }
-        // The chat agent has finished creating / resuming its session by
-        // the time it sends mentor.ready. Capture the sessionId from the
-        // payload so we can round-trip it on the next iframe load (URL
-        // ?sessionId=…) and resume the same conversation across refreshes
-        // and lab save/resume.
-        if (msg.payload?.sessionId) setStoredSessionId(msg.payload.sessionId);
+        // mentor.ready is a pure handshake; the chat doesn't yet know
+        // its sessionId. We respond with host.init carrying the resume
+        // hints we have: a stable labInstanceId we minted on first load
+        // (or any prior load), and the sessionId we previously stored
+        // under that instance, if any. The chat will resolve the
+        // session and reply with mentor.session.opened.
+        const labInstanceId = getLabInstanceId();
         post(OUT.INIT, {
-          sessionId: getStoredSessionId(),
+          labInstanceId,
+          sessionId: getStoredSessionId(labInstanceId),
           userName: 'Chris',
           theme: currentIframeTheme(),
           locale: 'en',
           labContext: currentContext(),
         });
         break;
+      }
+      case IN.SESSION_OPENED: {
+        // Capture the chat's announced sessionId and persist it under
+        // our labInstanceId. On the next iframe load (refresh, lab
+        // save/resume, etc.) we'll re-supply it on host.init.sessionId.
+        const sessionId = msg.payload?.sessionId;
+        if (sessionId) setStoredSessionId(getLabInstanceId(), sessionId);
+        break;
+      }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
       case IN.SEND_TEXT:          showEnvToast(msg.payload?.text || ''); break;
       case IN.MENTOR_RESPONSE:    showMentorBadge(); break;

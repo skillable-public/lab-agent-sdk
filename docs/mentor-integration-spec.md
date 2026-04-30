@@ -115,8 +115,12 @@ the URL and how you behave once loaded.
 | `parentOrigin` | string               | The exact origin of the lab page. Use this to validate inbound `postMessage` sources and to target your outbound posts. |
 | `theme`        | `"light"` \| `"dark"`| Initial theme. Light is the default if absent. |
 | `locale`       | string               | BCP-47 locale tag, e.g. `en-US`. |
-| `sessionId`    | string               | If supplied, resume an existing mentor session. The mentor backend owns the id namespace; Skillable simply round-trips whatever the iframe announced earlier on `mentor.ready.payload.sessionId`. |
 | `userId`       | string               | Opaque user identifier at Skillable's discretion. Not guaranteed to be stable across sessions. Identity hint only — **not a credential**. |
+
+Session continuity (resume after refresh, save/resume, etc.) does **not**
+travel through URL parameters — it travels through the postMessage
+handshake. See [Section 6 — Handshake](#6-handshake-required) and the
+`mentor.session.opened` / `host.init.labInstanceId` fields.
 
 Your app may be embedded with **zero** parameters — never require any.
 Pick sensible defaults (light theme, `en` locale, fresh session).
@@ -238,42 +242,83 @@ context-free generic responses.
 ## 6. Handshake (required)
 
 ```
-  iframe -> host : mentor.ready   (carries sessionId, if known)
-  host -> iframe : host.init
+  iframe -> host : mentor.ready          (handshake; no session yet)
+  host  -> iframe: host.init             (may carry labInstanceId, sessionId)
+  iframe -> host : mentor.session.opened  (the active sessionId)
 ```
 
-1. On load, your iframe creates or resumes its mentor session. If a
-   `sessionId` was supplied via the URL (`?sessionId=…`) you should try
-   that one first; if it isn't recognized by your backend, mint a new
-   one. **Don't** send `mentor.ready` until you have an active sessionId
-   — the host needs it from the ready payload to round-trip on the next
-   load (see "Resume across reloads" below).
-2. Post `mentor.ready` to the parent window with `sessionId` and
-   `capabilities` in the payload.
-3. The lab responds with `host.init` carrying identity, theme, and the
-   initial `LabContext`. From then on you may send any of the `mentor.*`
-   messages and the lab may send any of the `host.*` messages.
+1. On load, your iframe attaches its `message` listener and posts
+   `mentor.ready`. This is a pure handshake — **do not** put a
+   sessionId on it.
+2. The lab responds with `host.init`. Among other things, it MAY include:
+   - `labInstanceId` — a stable id for the student's current lab
+     attempt (see [Resume across reloads](#resume-across-reloads));
+   - `sessionId` — a chat session id the host previously persisted
+     (i.e., one your iframe announced on a prior `mentor.session.opened`).
+3. Your iframe resolves the active session (resume / mirror / mint —
+   see priority below), then posts `mentor.session.opened` with that id
+   in the payload, exactly once.
+4. From then on you may send any of the `mentor.*` messages and the lab
+   may send any of the `host.*` messages.
 
-If the lab never sends `host.init`, your mentor should still work — just
-without user identity, theme overrides, or lab context.
+If the lab never sends `host.init`, your mentor should still work — fall
+back to a fresh session (no resume, no labInstanceId scoping) and fire
+`mentor.session.opened` against that id.
+
+### Resolving the active sessionId
+
+The iframe is the authoritative *announcer* of the sessionId; how it
+arrives at one is an implementation choice. Recommended priority:
+
+1. **Resume.** If `host.init.sessionId` is present and your backend
+   recognizes it, use it. This is the normal path after the first load.
+2. **Mirror or look up.** If `host.init.labInstanceId` is present but
+   no `sessionId`, you MAY mirror `labInstanceId` directly as your
+   sessionId, derive an id from it, or use it as a key into your own
+   session storage. Whatever fits your backend.
+3. **Mint.** Otherwise, generate a fresh id.
+
+In every case, you announce the result via `mentor.session.opened` so
+the host can persist it.
 
 ### Resume across reloads
 
-The mentor backend owns the `sessionId` namespace. The host's job is to
-*round-trip* whatever the mentor handed back. Concretely:
+The host's job is to *round-trip* the chat's announced sessionId so the
+same conversation picks back up after a refresh, lab save/resume, or
+any other re-mount of the iframe. The mechanism is entirely over
+postMessage — there is **no** URL handoff.
 
-- Iframe announces the active id on `mentor.ready.payload.sessionId`.
-- Host persists that id (e.g., scoped to the lab attempt).
-- On the next iframe load — refresh, lab save/resume, etc. — host
-  appends `?sessionId=<persisted id>` to the iframe `src` so the mentor
-  can pick up the same conversation.
+- After session resolution, iframe posts
+  `mentor.session.opened { sessionId }`.
+- Host persists `sessionId`, typically scoped under the
+  `labInstanceId` it issued.
+- On the next iframe load, host emits `host.init` carrying both
+  `labInstanceId` (still the same — same lab attempt) and the stored
+  `sessionId`.
+- Iframe resumes that id, fires `mentor.session.opened` against it.
 
-This makes session continuity opt-in: hosts that don't care can ignore
-`sessionId` entirely; hosts that do care never need to invent ids.
+This is opt-in on both sides:
+
+- A host that doesn't persist anything sends only `labInstanceId` (or
+  nothing). Iframe mints fresh each load. Bound still fires; the host
+  ignores it. Conversations don't resume — fine for hosts that don't
+  care.
+- A host that persists fully sends both fields. Iframe resumes.
+- An iframe that doesn't model sessions just doesn't fire
+  `mentor.session.opened`. Host has nothing to persist. Also fine.
+
+`labInstanceId` is also useful **outside** session management — it's a
+stable handle on the lab attempt that the chat can attach to its own
+analytics, logs, transcripts, etc. Treat it as opaque: don't parse it,
+don't display it as anything user-facing.
+
+`labInstanceId` is host-supplied data over postMessage. Treat it as a
+hint for state lookup and analytics, **not** as an authentication or
+authorization signal — same posture we already apply to `userId`.
 
 ### Example
 
-Your iframe, after creating or resuming its session:
+Your iframe, on load:
 
 ```jsonc
 {
@@ -282,12 +327,12 @@ Your iframe, after creating or resuming its session:
   "type": "mentor.ready",
   "payload": {
     "protocolVersion": 1,
-    "sessionId": "9a3b1c0e7f2d4a8b9c1d2e3f4a5b6c7d",
     "capabilities": [
       "mentor.gotoInstructionsPage",
       "mentor.sendTextToEnvironment",
       "mentor.message.sent",
       "mentor.response",
+      "mentor.session.opened",
       "mentor.error"
     ]
   }
@@ -306,12 +351,27 @@ The lab, in response:
   "version": 1,
   "type": "host.init",
   "payload": {
-    "sessionId": null,
+    "labInstanceId": "li_4f3a2b1c",
+    "sessionId": "9a3b1c0e7f2d4a8b9c1d2e3f4a5b6c7d",
     "userName": "Corey",
     "userId": "u-8e2c9a",
     "theme": "light",
     "locale": "en",
     "labContext": { /* see LabContext below */ }
+  }
+}
+```
+
+Your iframe, after resolving the session:
+
+```jsonc
+{
+  "source": "mentor-chat",
+  "version": 1,
+  "type": "mentor.session.opened",
+  "payload": {
+    "sessionId": "9a3b1c0e7f2d4a8b9c1d2e3f4a5b6c7d",
+    "kind": "resumed"
   }
 }
 ```
@@ -335,14 +395,15 @@ The lab, in response:
 **Required.** Sent once after the lab receives `mentor.ready`. If your
 iframe receives nothing, carry on with defaults.
 
-| Field         | Type                           | Notes |
-|---------------|--------------------------------|-------|
-| `sessionId`   | string?                        | Resume an existing session. If null/omitted, start fresh. |
-| `userName`    | string?                        | Display-name hint. |
-| `userId`      | string?                        | Opaque user id (identity hint, not a credential). |
-| `theme`       | `"light"` \| `"dark"`          | Apply immediately. |
-| `locale`      | string?                        | BCP-47 locale. |
-| `labContext`  | [`LabContext`](#10-labcontext) | Initial grounding. |
+| Field            | Type                           | Notes |
+|------------------|--------------------------------|-------|
+| `labInstanceId`  | string?                        | Stable opaque id for the **student's current lab attempt**. Survives save/resume; not shared across users. Useful as a scope for the host's own session-id storage and for chat-side analytics. Treat as opaque (do not parse) and as a hint, not a credential. See [Resume across reloads](#resume-across-reloads). |
+| `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. |
+| `userName`       | string?                        | Display-name hint. May be anonymized by the lab platform. |
+| `userId`         | string?                        | Opaque user id (identity hint, not a credential). |
+| `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
+| `locale`         | string?                        | BCP-47 locale. |
+| `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -395,6 +456,7 @@ question into the mentor".
 | Type                            | Status    | Purpose |
 |---------------------------------|-----------|---------|
 | `mentor.ready`                  | Required  | Announce iframe is loaded and listening. |
+| `mentor.session.opened`          | Optional  | Announce the active mentor sessionId for this iframe load. |
 | `mentor.gotoInstructionsPage`   | Optional  | Ask the lab to navigate to a specific instructions page. |
 | `mentor.sendTextToEnvironment`  | Optional  | Ask the lab to paste text into the lab environment. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
@@ -402,15 +464,36 @@ question into the mentor".
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
 
 ### `mentor.ready`
-**Required.** The iframe is loaded, its message listener is attached,
-and a mentor session has been created or resumed. Send this exactly
-once.
+**Required.** The iframe is loaded and its message listener is
+attached. Send this exactly once, as early as you can (typically right
+after your bridge wires up its `message` listener). This is a pure
+handshake — no sessionId yet.
 
 | Field               | Type       | Notes |
 |---------------------|------------|-------|
 | `protocolVersion`   | number     | `1` |
-| `sessionId`         | string?    | Active mentor session id. Optional — omit if your iframe doesn't model sessions or doesn't yet know one. Hosts that care about resume should persist this and round-trip it via `?sessionId=` on the next iframe load. |
-| `capabilities`      | string[]   | Every outbound type your iframe may produce. |
+| `capabilities`      | string[]   | Every outbound type your iframe may produce. Hosts may use this to light up corresponding UI affordances. |
+
+### `mentor.session.opened`
+**Optional.** Announces the sessionId the iframe has committed to for
+this iframe load. Send this exactly once, after the session has been
+resolved (resumed, mirrored, or minted — see
+[Resolving the active sessionId](#resolving-the-active-sessionid)). The
+host SHOULD persist this id, typically scoped under
+`host.init.labInstanceId`, so it can be re-supplied as
+`host.init.sessionId` on the next iframe load.
+
+The iframe does **not** re-fire `mentor.session.opened` for the same
+session later — once announced, the id is fixed for the lifetime of
+the iframe. If your backend ever needs to swap to a different
+sessionId, treat that as a fresh iframe lifecycle (e.g., reload).
+
+Iframes that don't model sessions can omit this message entirely.
+
+| Field        | Type                                                  | Notes |
+|--------------|-------------------------------------------------------|-------|
+| `sessionId`  | string                                                | Active mentor session id. Opaque to the host. |
+| `kind`       | `"started" \| "resumed" \| "mirrored"` (extensible)   | How this iframe arrived at the sessionId. `"started"` = freshly minted; `"resumed"` = picked up from `host.init.sessionId`; `"mirrored"` = derived from `host.init.labInstanceId`. Hosts that don't care about the distinction can ignore this field. Receivers must tolerate unknown values. |
 
 ### `mentor.gotoInstructionsPage`
 **Optional.** Ask the lab to navigate to a specific page of
@@ -566,11 +649,19 @@ as inert.
 ## 12. Lifecycle
 
 - **Load.** Skillable mounts your iframe. Your code runs as usual.
-- **Ready.** You post `mentor.ready` once. Do not re-post on every
-  navigation; use `host.context.update` to re-ground.
+- **Ready.** Post `mentor.ready` once as soon as your message listener
+  is attached. No sessionId yet — this is a pure handshake.
+- **Init.** Skillable replies with `host.init`, optionally carrying
+  `labInstanceId` and a previously-persisted `sessionId`.
+- **Open.** Resolve the active session (resume / mirror / mint), then
+  post `mentor.session.opened` with that id. This is what makes
+  refresh + save/resume pick up the same conversation: Skillable
+  persists the announced id under your `labInstanceId` and re-supplies
+  it on the next `host.init`.
 - **Runtime.** Messages flow in both directions. You may send
   `mentor.*` events at any time; Skillable may send `host.*` events at
-  any time.
+  any time. Do not re-post `mentor.ready` or `mentor.session.opened` on
+  every navigation; use `host.context.update` to re-ground.
 - **Teardown.** Skillable may unmount the iframe at any point (session
   end, student quits). Do not rely on a goodbye handshake.
 
