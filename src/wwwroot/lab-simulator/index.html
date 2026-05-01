@@ -88,7 +88,7 @@
       </p>
       <p>
         Sample chat agent on its own:
-        <a href="/sample-chat-agent/"><code>/sample-chat-agent/</code></a>.
+        <a href="/sample-chat-agent/" id="sample-chat-link"><code>/sample-chat-agent/</code></a>.
       </p>
     </footer>
   </main>
@@ -112,6 +112,18 @@
     document.getElementById('btn-sample').addEventListener('click', () => {
       gotoLab(SAMPLE_MENTOR_URL);
     });
+
+    // Replace the footer link's visible text with the absolute URL so it's
+    // copy/pasteable as-is — useful for testers loading the sample chat
+    // agent from another origin (lab client embed, separate browser, etc.).
+    (function fillSampleChatLink() {
+      const a = document.getElementById('sample-chat-link');
+      if (!a) return;
+      const absolute = new URL(SAMPLE_MENTOR_URL, window.location.href).toString();
+      a.href = absolute;
+      const code = a.querySelector('code');
+      if (code) code.textContent = absolute;
+    })();
   </script>
 </body>
 </html>
