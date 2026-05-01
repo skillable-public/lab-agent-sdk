@@ -398,7 +398,7 @@ iframe receives nothing, carry on with defaults.
 | Field            | Type                           | Notes |
 |------------------|--------------------------------|-------|
 | `labInstanceId`  | string?                        | Stable opaque id for the **student's current lab attempt**. Survives save/resume; not shared across users. Useful as a scope for the host's own session-id storage and for chat-side analytics. Treat as opaque (do not parse) and as a hint, not a credential. See [Resume across reloads](#resume-across-reloads). |
-| `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. |
+| `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. **Maximum 128 characters.** |
 | `userName`       | string?                        | Display-name hint. May be anonymized by the lab platform. |
 | `userId`         | string?                        | Opaque user id (identity hint, not a credential). |
 | `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
@@ -492,7 +492,7 @@ Iframes that don't model sessions can omit this message entirely.
 
 | Field        | Type                                                  | Notes |
 |--------------|-------------------------------------------------------|-------|
-| `sessionId`  | string                                                | Active mentor session id. Opaque to the host. |
+| `sessionId`  | string                                                | Active mentor session id. Opaque to the host. **Maximum 128 characters** — iframes that mint or mirror longer values must truncate or hash to fit. Hosts SHOULD reject (or at least flag) values longer than this. |
 | `kind`       | `"started" \| "resumed" \| "mirrored"` (extensible)   | How this iframe arrived at the sessionId. `"started"` = freshly minted; `"resumed"` = picked up from `host.init.sessionId`; `"mirrored"` = derived from `host.init.labInstanceId`. Hosts that don't care about the distinction can ignore this field. Receivers must tolerate unknown values. |
 
 ### `mentor.gotoInstructionsPage`
