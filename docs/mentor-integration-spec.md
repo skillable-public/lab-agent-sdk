@@ -333,6 +333,7 @@ Your iframe, on load:
       "mentor.message.sent",
       "mentor.response",
       "mentor.session.opened",
+      "mentor.environmentScreenshot.request",
       "mentor.error"
     ]
   }
@@ -357,7 +358,10 @@ The lab, in response:
     "userId": "u-8e2c9a",
     "theme": "light",
     "locale": "en",
-    "labContext": { /* see LabContext below */ }
+    "labContext": { /* see LabContext below */ },
+    "capabilities": [
+      "host.environmentScreenshot.response"
+    ]
   }
 }
 ```
@@ -382,14 +386,15 @@ Your iframe, after resolving the session:
 
 ### Summary
 
-| Type                    | Status    | Purpose |
-|-------------------------|-----------|---------|
-| `host.init`             | Required  | Handshake; identity, theme, initial context. |
-| `host.context.update`   | Optional  | New `LabContext` (page change, env change). |
-| `host.hint.request`     | Optional  | Ask the mentor for a proactive hint. |
-| `host.theme.change`     | Optional  | Theme switched at runtime. |
-| `host.locale.change`    | Optional  | Locale switched at runtime. |
-| `host.send.message`     | Optional  | Inject a user-authored message on the student's behalf. |
+| Type                                 | Status    | Purpose |
+|--------------------------------------|-----------|---------|
+| `host.init`                          | Required  | Handshake; identity, theme, initial context. |
+| `host.context.update`                | Optional  | New `LabContext` (page change, env change). |
+| `host.hint.request`                  | Optional  | Ask the mentor for a proactive hint. |
+| `host.theme.change`                  | Optional  | Theme switched at runtime. |
+| `host.locale.change`                 | Optional  | Locale switched at runtime. |
+| `host.send.message`                  | Optional  | Inject a user-authored message on the student's behalf. |
+| `host.environmentScreenshot.response`| Optional  | Reply to `mentor.environmentScreenshot.request` with image data or a failure reason. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -404,6 +409,7 @@ iframe receives nothing, carry on with defaults.
 | `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
+| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. Currently `host.environmentScreenshot.response` is the only entry; the array will grow as the protocol gains more request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -447,6 +453,36 @@ question into the mentor".
 |------------|----------|
 | `content`  | string   |
 
+### `host.environmentScreenshot.response`
+**Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
+The host correlates request/response by echoing the request's envelope
+`id` on the response.
+
+The payload uses `snake_case` field names to match its `snake_case`
+`reason` enum values; this is a localized exception to the otherwise
+`camelCase` payload convention used elsewhere in the spec, kept this
+way so a single payload doesn't mix conventions.
+
+| Field      | Type                  | Notes |
+|------------|-----------------------|-------|
+| `ok`       | boolean               | `true` iff the host produced image data. |
+| `data_url` | string?               | Data URL (`data:image/<format>;base64,…`) when `ok` is `true`; `null`/omitted otherwise. The host picks the mime type — PNG, JPEG, and WebP are all fine. |
+| `reason`   | string?               | Machine-readable failure category. `null` on success. See enum below. Receivers must tolerate unknown values. |
+| `message`  | string?               | Optional human-readable detail (logging / tooltips). |
+
+`reason` enum (extensible):
+
+- `"not_supported"` — the lab environment cannot produce screen data at all (e.g., a non-VM lab, a remote-controller type without screen-capture support). Steady-state condition; the iframe should consider the capability unavailable for the rest of the session.
+- `"not_available"` — the lab supports screen data but cannot produce it right now (e.g., no target selected, no controller, not connected). Transient; retrying later may succeed.
+- `"capture_failed"` — the underlying capture call threw. Treat as transient unless it persists.
+
+Hosts that don't implement screenshots at all should omit
+`host.environmentScreenshot.response` from their
+`host.init.capabilities` array — that hides the iframe's screenshot
+affordance entirely. The `not_supported` reason is for hosts that *do*
+generally support screenshots but for which this particular lab /
+environment can't produce them.
+
 ---
 
 ## 8. Messages from iframe &rarr; host
@@ -459,6 +495,7 @@ question into the mentor".
 | `mentor.session.opened`          | Optional  | Announce the active mentor sessionId for this iframe load. |
 | `mentor.gotoInstructionsPage`   | Optional  | Ask the lab to navigate to a specific instructions page. |
 | `mentor.sendTextToEnvironment`  | Optional  | Ask the lab to paste text into the lab environment. |
+| `mentor.environmentScreenshot.request` | Optional | Ask the lab for a screenshot of the lab environment. Reply via `host.environmentScreenshot.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -520,6 +557,25 @@ select a target.
 the environment. Assume the lab will not auto-execute your text but
 will paste it for the student to review. Do not use this channel to
 attempt to escape the lab.
+
+### `mentor.environmentScreenshot.request`
+**Optional.** Ask the lab to capture and return an image of the current
+lab environment (a VM screen, a remote-controller framebuffer, etc.).
+Typical trigger: the student clicks a "share screenshot" affordance in
+the chat composer so the mentor can reason over the visual state.
+
+The host correlates the response by echoing the envelope `id` of this
+request on its `host.environmentScreenshot.response`. Always assign an
+`id` so concurrent requests don't get mixed up.
+
+This message has no payload fields beyond what's in the envelope;
+`payload` may be `{}` or omitted.
+
+Iframes SHOULD only show the screenshot affordance when
+`host.environmentScreenshot.response` is present in
+`host.init.capabilities`. Iframes SHOULD apply a client-side timeout
+(10 seconds is a reasonable default) and surface a failure if no
+response arrives.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful

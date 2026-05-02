@@ -24,23 +24,33 @@
 
   // Inbound (chat -> host)
   const IN = {
-    READY:              'mentor.ready',
-    SESSION_OPENED:     'mentor.session.opened',
-    GOTO_PAGE:          'mentor.gotoInstructionsPage',
-    SEND_TEXT:          'mentor.sendTextToEnvironment',
-    MESSAGE_SENT:       'mentor.message.sent',
-    MENTOR_RESPONSE:    'mentor.response',
-    ERROR:              'mentor.error',
+    READY:                'mentor.ready',
+    SESSION_OPENED:       'mentor.session.opened',
+    GOTO_PAGE:            'mentor.gotoInstructionsPage',
+    SEND_TEXT:            'mentor.sendTextToEnvironment',
+    SCREENSHOT_REQUEST:   'mentor.environmentScreenshot.request',
+    MESSAGE_SENT:         'mentor.message.sent',
+    MENTOR_RESPONSE:      'mentor.response',
+    ERROR:                'mentor.error',
   };
   // Outbound (host -> chat)
   const OUT = {
-    INIT:            'host.init',
-    CONTEXT_UPDATE:  'host.context.update',
-    HINT_REQUEST:    'host.hint.request',
-    THEME_CHANGE:    'host.theme.change',
-    LOCALE_CHANGE:   'host.locale.change',
-    SEND_MESSAGE:    'host.send.message',
+    INIT:                 'host.init',
+    CONTEXT_UPDATE:       'host.context.update',
+    HINT_REQUEST:         'host.hint.request',
+    THEME_CHANGE:         'host.theme.change',
+    LOCALE_CHANGE:        'host.locale.change',
+    SEND_MESSAGE:         'host.send.message',
+    SCREENSHOT_RESPONSE:  'host.environmentScreenshot.response',
   };
+
+  // Capabilities we advertise to the iframe via host.init.capabilities.
+  // The iframe uses this to show/hide capability-gated UI (currently the
+  // "Get screenshot" button). Add more entries here as we implement more
+  // host-side responses.
+  const HOST_CAPABILITIES = [
+    OUT.SCREENSHOT_RESPONSE,
+  ];
 
   const $  = (id) => document.getElementById(id);
   const $$ = (sel) => document.querySelectorAll(sel);
@@ -393,9 +403,13 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   }
 
   // --- postMessage plumbing -------------------------------------------------
-  function post(type, payload) {
+  // `correlationId` echoes back a request's envelope id so the iframe can
+  // pair the response to the original request (used by
+  // host.environmentScreenshot.response). Omit for fire-and-forget messages.
+  function post(type, payload, correlationId) {
     if (!mentorLoaded || !$iframe.contentWindow) return;
     const msg = { source: SOURCE_HOST, version: PROTOCOL_VERSION, type, payload };
+    if (correlationId) msg.id = correlationId;
     $iframe.contentWindow.postMessage(msg, new URL(iframeUrl()).origin);
     log('host \u2192 chat', type, payload);
   }
@@ -427,6 +441,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           theme: currentIframeTheme(),
           locale: 'en',
           labContext: currentContext(),
+          capabilities: HOST_CAPABILITIES,
         });
         break;
       }
@@ -438,11 +453,109 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         if (sessionId) setStoredSessionId(getLabInstanceId(), sessionId);
         break;
       }
+      case IN.SCREENSHOT_REQUEST: {
+        // Reply to the screenshot request. Echo the request's envelope
+        // id so the iframe can correlate. The simulator generates a
+        // representative image on the fly (see produceFakeScreenshot)
+        // — a real lab host would capture the actual VM/desktop framebuffer.
+        const responsePayload = produceFakeScreenshot();
+        post(OUT.SCREENSHOT_RESPONSE, responsePayload, msg.id);
+        break;
+      }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
       case IN.SEND_TEXT:          showEnvToast(msg.payload?.text || ''); break;
       case IN.MENTOR_RESPONSE:    showMentorBadge(); break;
     }
   });
+
+  // --- Fake screenshot generator -------------------------------------------
+  //
+  // We don't have a real VM to capture in the simulator, so we draw a
+  // representative PNG on a hidden canvas and return its data URL. The
+  // image surfaces enough state (lab title, page, timestamp) that each
+  // capture looks meaningfully different — useful for end-to-end demos.
+  //
+  // To exercise the failure paths from the spec's `reason` enum, set
+  // window.__simulatedScreenshotFailure to one of "not_supported",
+  // "not_available", "capture_failed" before clicking the screenshot
+  // button. The simulator returns the matching {ok:false, reason} payload
+  // instead of generating an image. (Non-spec, internal-test affordance.)
+  function produceFakeScreenshot() {
+    const forced = window.__simulatedScreenshotFailure;
+    if (forced) {
+      return {
+        ok: false,
+        data_url: null,
+        reason: forced,
+        message: `Simulated failure: window.__simulatedScreenshotFailure = "${forced}".`,
+      };
+    }
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 480;
+      const ctx2d = canvas.getContext('2d');
+
+      // Background
+      ctx2d.fillStyle = '#1f2933';
+      ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Faux taskbar stripe
+      ctx2d.fillStyle = '#0f172a';
+      ctx2d.fillRect(0, canvas.height - 36, canvas.width, 36);
+
+      // Heading
+      ctx2d.fillStyle = '#e2e8f0';
+      ctx2d.font = '600 22px Inter, system-ui, sans-serif';
+      ctx2d.fillText('Lab Environment — simulated capture', 28, 48);
+
+      // Lab + page lines
+      ctx2d.font = '500 16px Inter, system-ui, sans-serif';
+      ctx2d.fillStyle = '#94a3b8';
+      const ctx = currentContext();
+      const lines = [
+        `Lab: ${ctx.labTitle ?? '(untitled)'}`,
+        `Page ${(ctx.currentPageIndex ?? 0) + 1} of ${ctx.totalPages ?? '?'} — ${ctx.pageTitle ?? '(no heading)'}`,
+        `Captured: ${new Date().toLocaleString()}`,
+      ];
+      lines.forEach((line, i) => ctx2d.fillText(line, 28, 84 + i * 24));
+
+      // Mock terminal
+      ctx2d.fillStyle = '#0b1220';
+      ctx2d.fillRect(28, 180, canvas.width - 56, 240);
+      ctx2d.fillStyle = '#22c55e';
+      ctx2d.font = '500 14px JetBrains Mono, ui-monospace, monospace';
+      ctx2d.fillText('PS C:\\Users\\student>', 44, 210);
+      ctx2d.fillStyle = '#cbd5e1';
+      ctx2d.fillText('Get-ChildItem -Force', 200, 210);
+      ctx2d.fillStyle = '#94a3b8';
+      [
+        '    Directory: C:\\Users\\student',
+        '',
+        'Mode    LastWriteTime         Length Name',
+        '----    -------------         ------ ----',
+        'd----   2026-04-30 10:15             Desktop',
+        'd----   2026-04-30 10:15             Documents',
+        'd----   2026-04-30 10:15             Downloads',
+        '-a---   2026-04-30 10:42         15  hello.txt',
+      ].forEach((line, i) => ctx2d.fillText(line, 44, 240 + i * 18));
+
+      return {
+        ok: true,
+        data_url: canvas.toDataURL('image/png'),
+        reason: null,
+        message: null,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        data_url: null,
+        reason: 'capture_failed',
+        message: String(e?.message || e),
+      };
+    }
+  }
 
   function gotoInstructionsPage(index) {
     if (typeof index !== 'number' || index < 0 || index >= lab.pages.length) return;
