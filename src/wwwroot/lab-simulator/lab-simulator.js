@@ -352,9 +352,12 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   const LAB_INSTANCE_KEY = `lab-instance::${PERSISTENCE_SCOPE}`;
 
   function newLabInstanceId() {
-    // Reasonably unique opaque id — adequate for a demo. Real hosts have
-    // their own attempt-id schemes (database row, server-generated UUID, etc).
-    return 'li_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    // Stand-in for the production lab platform's labInstanceId, which
+    // is a server-assigned numeric id (a long, serialized as a string
+    // per the spec). The simulator uses a timestamp here for stability
+    // across reloads. Treat it as opaque — no entropy guarantees, and
+    // do NOT derive a sessionId from it (see spec section 6).
+    return String(Date.now());
   }
   function getLabInstanceId() {
     try {
@@ -388,11 +391,10 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
 
   function iframeUrl() {
     // Resolve the (possibly-relative) mentor URL against this page first,
-    // then layer on parentOrigin and theme. Note: sessionId / labInstanceId
-    // are NOT URL parameters — they travel through postMessage (host.init
-    // -> mentor.session.opened) per the integration spec.
+    // then layer on the theme. Note: sessionId / labInstanceId are NOT
+    // URL parameters — they travel through postMessage (host.init ->
+    // mentor.session.opened) per the integration spec.
     const base = new URL(MENTOR_URL, window.location.href);
-    base.searchParams.set('parentOrigin', window.location.origin);
     base.searchParams.set('theme', currentIframeTheme());
     return base.toString();
   }
