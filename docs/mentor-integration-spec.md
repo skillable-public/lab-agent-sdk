@@ -126,21 +126,132 @@ Pick sensible defaults (light theme, `en` locale, fresh session).
 
 ### 3.2 Authentication
 
-The postMessage contract does **not** carry credentials. `userId` is an
-identity hint for personalization, not an authentication token.
+The integration spec supports two operating modes:
 
-If your backend needs to authenticate calls from Skillable (or from your
-own iframe), arrange that out-of-band during onboarding:
+- **Embed-only.** Skillable embeds your iframe, posts context messages,
+  and otherwise leaves you alone. No tokens, no verification, no auth
+  logic on your side.
+- **Authenticated.** Skillable mints a signed launch token per iframe
+  load and delivers it via `host.init.authToken`. Your backend verifies
+  the token before honoring requests.
 
-- API keys you issue to Skillable, attached as HTTP headers on requests
-  from the iframe;
+The Skillable lab platform always mints and offers a token on every
+iframe launch (it's a property of the host, not negotiated with the
+mentor). Whether your mentor verifies the token is your decision; no
+coordination with Skillable is required.
+
+Authenticated mode is the recommended path. You should implement
+verification if any of these apply: you pay per request to a
+third-party LLM, you store conversation history that should be bound
+to a specific user, you serve more than one customer through the same
+mentor URL, you anticipate enterprise security review, or you handle
+data more sensitive than chat content. Embed-only is acceptable only
+when *none* of those apply — for example, a static reference viewer
+or an internal-only demo. Treat it as a constrained fallback, not a
+default; if your mentor's footprint grows into any of the cases above,
+plan to add authentication rather than continuing to defer it.
+
+#### 3.2.1 What authentication buys you
+
+Concretely, what changes between the two modes:
+
+| Concern | Embed-only | Authenticated |
+|---|---|---|
+| Direct loads of your iframe URL | Anyone who learns the URL can use your mentor and consume its resources. | No `authToken` arrives; your backend refuses unauthenticated requests. |
+| `userId` / `labInstanceId` claims from postMessage | Unsigned hints — any embedder could fabricate them. | Cryptographically signed by Skillable, verifiable against the published JWKS. |
+| Resuming a stored session | You trust whatever `sessionId` the iframe presents. | The verified `sub` claim proves session ownership before you honor the resume. |
+| Multi-tenant deployments (your mentor serves more than one Skillable customer or LMS) | No reliable way to distinguish them. | The verified `aud` claim identifies the customer unambiguously. |
+| Security-review answer to *"how do you authenticate inbound requests?"* | "We trust the iframe's postMessage." | "We verify RS256-signed JWTs against the issuer's published JWKS." |
+
+Origin allowlisting (Section 3.3) tells you *"this message came from a
+Skillable origin."* The launch token tells you *"this came from a
+legitimate Skillable lab launch, on behalf of this specific user, for
+this specific lab attempt."* Those are different guarantees, and only
+the second one closes the path where someone navigates to your iframe
+URL directly in a browser tab.
+
+#### 3.2.2 The launch token
+
+When provided, `host.init.payload.authToken` is an RS256-signed JWT
+with these claims:
+
+| Claim           | Meaning |
+|-----------------|---------|
+| `iss`           | Issuer — the Skillable environment URL, e.g. `https://labclient.labondemand.com`. |
+| `aud`           | Audience — your mentor application identifier, agreed at onboarding (typically the origin of your mentor URL). Reject tokens whose `aud` doesn't match. |
+| `sub`           | User identifier (same value as `host.init.userId`). |
+| `labInstanceId` | The lab instance identifier (same value as `host.init.labInstanceId`). Authoritative; prefer over the postMessage value. |
+| `iat`           | Issued-at (UNIX seconds). |
+| `exp`           | Expiry (UNIX seconds). Typically 15 minutes after `iat`. |
+| `jti`           | Unique token identifier — used for replay protection. |
+
+Tokens are signed with a 2048-bit RSA private key managed by Skillable.
+The private key never leaves Skillable's key-management infrastructure.
+
+#### 3.2.3 Verifying the launch token
+
+Your iframe forwards the token to your own backend on every API call
+(typically as `Authorization: Bearer <token>`). Your backend verifies it:
+
+1. Fetch the JWKS document at the URL provided at onboarding (e.g.
+   `https://labclient.labondemand.com/.well-known/jwks.json`). Cache per
+   the response's `Cache-Control` header.
+2. Look up the public key by the JWT's `kid` header; force-refresh the
+   JWKS document on cache miss.
+3. Verify the RS256 signature.
+4. Verify `iss`, `aud`, `exp`, and optionally `jti` (not previously seen).
+5. On success, treat `sub` and `labInstanceId` as authoritative.
+
+Modern JWT libraries (e.g. `jose`, `PyJWT`, `Microsoft.IdentityModel.Tokens`,
+`nimbus-jose-jwt`, `lestrrat-go/jwx`) implement steps 1–4 given the
+JWKS URL and expected `iss`/`aud`. There is no Skillable-specific SDK.
+
+#### 3.2.4 Token lifetime and refresh
+
+Launch tokens are short-lived (typically 15 minutes). For sessions that
+outlast a single token, the host pushes a fresh token via
+`host.auth.refresh` (see Section 7) shortly before the current token's
+`exp`. Iframes that implement authentication should handle this message
+by replacing their in-memory token. Iframes that don't implement
+authentication can ignore the message; once the initial token expires,
+authenticated requests will fail until the iframe is re-launched.
+
+#### 3.2.5 Configuration
+
+Three values are exchanged at onboarding:
+
+- `iss` — the issuer URL, e.g. `https://labclient.labondemand.com`.
+- `aud` — your mentor's audience identifier (typically your mentor
+  URL's origin, e.g. `https://acme-mentor.example.com`).
+- JWKS URL — e.g. `https://labclient.labondemand.com/.well-known/jwks.json`.
+
+#### 3.2.6 What authentication does not do
+
+For scope clarity:
+
+- It doesn't replace your own session management. The launch token is
+  the *initial* credential; ongoing browser-to-backend calls still need
+  your own cookie or bearer.
+- It doesn't authenticate the user to your service the way an end-user
+  OAuth/OIDC sign-in would. The token vouches for *"this is user X
+  according to Skillable,"* not *"user X has consented to your terms."*
+- It doesn't prevent a user from extracting their own token and
+  replaying it elsewhere. Short token lifetimes and `jti` replay
+  caching are the mitigations.
+- It doesn't cover server-to-server authentication between your backend
+  and Skillable's; see 3.2.7.
+
+#### 3.2.7 Server-to-server authentication
+
+Independent of the launch token. If Skillable's backend calls yours, or
+yours calls Skillable's, choose a scheme out-of-band during onboarding:
+
+- API keys attached as HTTP headers;
 - IP allowlisting if your infrastructure supports it;
 - mTLS;
-- signed request headers — whatever fits your stack.
+- signed request headers.
 
-Tell the Skillable integration team what your backend expects, and they
-will configure the lab to provide it. None of that plumbing shows up in
-the postMessage channel.
+The postMessage contract itself does **not** carry credentials.
 
 ### 3.3 Origin security
 
@@ -159,10 +270,10 @@ the target for all subsequent outbound posts.
 
 ```js
 const SKILLABLE_ORIGINS = new Set([
-  'https://labclient.skillable.com',
   'https://labclient.labondemand.com',
-  'https://labclient.qa.skillable.com',
+  'https://labclient.skillable.com',
   'https://labclient.uat.labondemand.com',
+  'https://labclient.qa.skillable.com',
 ]);
 
 let trustedOrigin = null;
@@ -223,7 +334,7 @@ that limits damage if anything else goes wrong.
   allowlist (Section 3.3). Example:
 
   ```
-  Content-Security-Policy: frame-ancestors https://labclient.skillable.com https://labclient.labondemand.com https://labclient.qa.skillable.com https://labclient.uat.labondemand.com;
+  Content-Security-Policy: frame-ancestors https://labclient.labondemand.com https://labclient.skillable.com https://labclient.uat.labondemand.com https://labclient.qa.skillable.com;
   ```
 
   Do not use `*`, and do not omit the directive — without it, any site
@@ -451,7 +562,8 @@ The lab, in response:
   "version": 1,
   "type": "host.init",
   "payload": {
-    "labInstanceId": "li_4f3a2b1c",
+    "labInstanceId": "98765432101234",
+    "authToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6InYxIn0...",
     "sessionId": "9a3b1c0e7f2d4a8b9c1d2e3f4a5b6c7d",
     "userName": "Corey",
     "userId": "u-8e2c9a",
@@ -487,7 +599,8 @@ Your iframe, after resolving the session:
 
 | Type                                 | Status    | Purpose |
 |--------------------------------------|-----------|---------|
-| `host.init`                          | Required  | Handshake; identity, theme, initial context. |
+| `host.init`                          | Required  | Handshake; identity, theme, initial context, optional launch token. |
+| `host.auth.refresh`                  | Optional  | Push a refreshed launch token before the current one expires. |
 | `host.context.update`                | Optional  | New `LabContext` (page change, env change). |
 | `host.hint.request`                  | Optional  | Ask the mentor for a proactive hint. |
 | `host.theme.change`                  | Optional  | Theme switched at runtime. |
@@ -502,13 +615,14 @@ iframe receives nothing, carry on with defaults.
 | Field            | Type                           | Notes |
 |------------------|--------------------------------|-------|
 | `labInstanceId`  | string?                        | Stable opaque id for the **student's current lab attempt**. Survives save/resume; not shared across users. Useful as a scope for the host's own session-id storage and for chat-side analytics. Treat as opaque (do not parse) and as a hint, not a credential. **No entropy guarantees** — Skillable's lab platform issues an incrementing 64-bit integer here, so do not use the value (or any derivation of it) as a sessionId. See [Resume across reloads](#resume-across-reloads). |
+| `authToken`      | string?                        | RS256-signed JWT (a "launch token") authenticating this iframe load. The host always sends one; iframes that don't implement verification can ignore it. See [Section 3.2](#32-authentication) for the claim list, verification steps, and refresh model. |
 | `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. **Maximum 128 characters.** |
 | `userName`       | string?                        | Display-name hint. May be anonymized by the lab platform. |
-| `userId`         | string?                        | Opaque user id (identity hint, not a credential). |
+| `userId`         | string?                        | Opaque user id (identity hint, not a credential). When `authToken` is present, the JWT's `sub` claim is the authoritative form. |
 | `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
-| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. Currently `host.environmentScreenshot.response` is the only entry; the array will grow as the protocol gains more request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
+| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. Currently `host.environmentScreenshot.response` is the only entry; the array will grow as the protocol gains more request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -597,6 +711,21 @@ environment can't produce them.
 Also validate the response's envelope `id` against your set of
 outstanding requests; ignore responses with an unknown or already-
 fulfilled `id`.
+
+### `host.auth.refresh`
+**Optional.** Push a refreshed launch token before the current one
+expires. The host sends this periodically (typically ~60 seconds
+before the current token's `exp`) for the lifetime of the iframe.
+Iframes that implement authentication should replace their in-memory
+token with the new value and use it on subsequent backend calls.
+Iframes that don't implement authentication can ignore the message.
+
+| Field        | Type    | Notes |
+|--------------|---------|-------|
+| `authToken`  | string  | New RS256-signed JWT. Same shape and claims as `host.init.authToken`. |
+
+See [Section 3.2](#32-authentication) for the token format and
+verification model.
 
 ---
 
@@ -841,7 +970,8 @@ as inert.
 - **Ready.** Post `mentor.ready` once as soon as your message listener
   is attached. No sessionId yet — this is a pure handshake.
 - **Init.** Skillable replies with `host.init`, optionally carrying
-  `labInstanceId` and a previously-persisted `sessionId`.
+  `labInstanceId`, an `authToken`, and a previously-persisted
+  `sessionId`.
 - **Open.** Resolve the active session (resume / mirror / mint), then
   post `mentor.session.opened` with that id. This is what makes
   refresh + save/resume pick up the same conversation: Skillable
@@ -856,6 +986,13 @@ as inert.
 
 Theme and locale can change at any point in the lifecycle. Treat them
 as reactive values.
+
+**Embed-only mentors are first-class.** A mentor that does not
+implement the postMessage protocol at all is a valid integration. The
+lab platform embeds it and otherwise leaves it alone — there is no
+requirement that a mentor send `mentor.ready`, and no requirement that
+it process any `host.*` message (including `host.init.authToken` and
+`host.auth.refresh`). Hosts MUST tolerate mentors that never handshake.
 
 ---
 

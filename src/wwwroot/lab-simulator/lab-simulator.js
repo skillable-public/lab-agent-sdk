@@ -42,7 +42,12 @@
     LOCALE_CHANGE:        'host.locale.change',
     SEND_MESSAGE:         'host.send.message',
     SCREENSHOT_RESPONSE:  'host.environmentScreenshot.response',
+    AUTH_REFRESH:         'host.auth.refresh',
   };
+
+  // Sandbox-fixed identity for the simulated student. In a real lab
+  // platform this comes from the authenticated user's session.
+  const SANDBOX_USER_ID = 'u-corey';
 
   // Capabilities we advertise to the iframe via host.init.capabilities.
   // The iframe uses this to show/hide capability-gated UI (currently the
@@ -416,7 +421,48 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     log('host \u2192 chat', type, payload);
   }
 
-  window.addEventListener('message', (event) => {
+  // --- Launch token minting + refresh push ---------------------------------
+  // Per spec section 3.2, the host always offers a launch token in
+  // host.init and pushes a fresh one via host.auth.refresh shortly before
+  // the current token's exp. We delegate signing to the backend
+  // (/api/lab/launch-token) \u2014 in production that would call into Azure
+  // Key Vault.
+  async function fetchLaunchToken({ userId, labInstanceId }) {
+    try {
+      const res = await fetch('/api/lab/launch-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, labInstanceId }),
+      });
+      if (!res.ok) {
+        log('host', 'launch-token mint failed', { status: res.status });
+        return null;
+      }
+      return await res.json(); // { authToken, expiresAt }
+    } catch (e) {
+      log('host', 'launch-token mint error', { error: String(e) });
+      return null;
+    }
+  }
+
+  let refreshTimerId = null;
+  function scheduleTokenRefresh({ userId, labInstanceId, expiresAt }) {
+    if (refreshTimerId) clearTimeout(refreshTimerId);
+    if (!expiresAt) return;
+    // Refresh ~60 seconds before exp (spec 3.2.3). Clamp to a 1s minimum
+    // so we don't busy-loop if the server returned a token that's already
+    // near expiry.
+    const refreshAt = new Date(expiresAt).getTime() - 60_000;
+    const delay = Math.max(1000, refreshAt - Date.now());
+    refreshTimerId = setTimeout(async () => {
+      const result = await fetchLaunchToken({ userId, labInstanceId });
+      if (!result) return;
+      post(OUT.AUTH_REFRESH, { authToken: result.authToken });
+      scheduleTokenRefresh({ userId, labInstanceId, expiresAt: result.expiresAt });
+    }, delay);
+  }
+
+  window.addEventListener('message', async (event) => {
     if (!$iframe || event.source !== $iframe.contentWindow) return;
     const msg = event.data;
     if (!msg || msg.source !== SOURCE_CHAT || msg.version !== PROTOCOL_VERSION) return;
@@ -430,21 +476,34 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           $bridgeStatus.classList.add('is-connected');
         }
         // mentor.ready is a pure handshake; the chat doesn't yet know
-        // its sessionId. We respond with host.init carrying the resume
-        // hints we have: a stable labInstanceId we minted on first load
-        // (or any prior load), and the sessionId we previously stored
-        // under that instance, if any. The chat will resolve the
-        // session and reply with mentor.session.opened.
+        // its sessionId. We respond with host.init carrying:
+        //   - resume hints (labInstanceId + previously-stored sessionId);
+        //   - a freshly-minted launch token (spec 3.2 \u2014 always offered).
+        // The chat will resolve the session and reply with
+        // mentor.session.opened. We then schedule periodic token refresh.
         const labInstanceId = getLabInstanceId();
+        const tokenResult = await fetchLaunchToken({
+          userId: SANDBOX_USER_ID,
+          labInstanceId,
+        });
         post(OUT.INIT, {
           labInstanceId,
+          authToken: tokenResult?.authToken,
           sessionId: getStoredSessionId(labInstanceId),
           userName: 'Chris',
+          userId: SANDBOX_USER_ID,
           theme: currentIframeTheme(),
           locale: 'en',
           labContext: currentContext(),
           capabilities: HOST_CAPABILITIES,
         });
+        if (tokenResult) {
+          scheduleTokenRefresh({
+            userId: SANDBOX_USER_ID,
+            labInstanceId,
+            expiresAt: tokenResult.expiresAt,
+          });
+        }
         break;
       }
       case IN.SESSION_OPENED: {

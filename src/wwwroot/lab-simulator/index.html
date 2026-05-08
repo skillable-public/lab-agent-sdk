@@ -81,14 +81,26 @@
       </div>
     </section>
 
+    <!-- Trusted launch-token issuers — populated from /api/lab/auth-config. -->
+    <section class="auth-status" id="auth-status" hidden>
+      <h3 class="auth-status__title">Launch-token verification</h3>
+      <p class="auth-status__lede">
+        The chat agent backend will accept launch tokens from these issuers.
+        To integration-test against a real Skillable lab client, add an entry
+        to <code>LaunchToken:ChatAgent:TrustedIssuers</code> in
+        <code>appsettings.json</code> and restart.
+      </p>
+      <ul class="auth-status__list" id="auth-status-list"></ul>
+    </section>
+
     <footer class="chooser__foot">
       <p>
         Reading the spec first?
         See <a href="../../docs/mentor-integration-spec.md"><code>docs/mentor-integration-spec.md</code></a>.
       </p>
       <p>
-        Sample chat agent on its own:
-        <a href="/sample-chat-agent/" id="sample-chat-link"><code>/sample-chat-agent/</code></a>.
+        Sample chat agent on its own (with the postMessage console enabled):
+        <a href="/sample-chat-agent/?debug=1" id="sample-chat-link"><code>/sample-chat-agent/?debug=1</code></a>.
       </p>
     </footer>
   </main>
@@ -96,6 +108,10 @@
   <script>
     // Two flows, same destination URL with different ?mentor= values.
     const SAMPLE_MENTOR_URL = '/sample-chat-agent/';
+    // Footer "open standalone" link enables the chat agent's postMessage
+    // console (?debug=1). The embedded flow above keeps the chat agent
+    // clean, since the lab simulator has its own event log.
+    const SAMPLE_MENTOR_STANDALONE_URL = '/sample-chat-agent/?debug=1';
 
     function gotoLab(mentorUrl) {
       const target = new URL('lab-simulator.html', window.location.href);
@@ -119,10 +135,40 @@
     (function fillSampleChatLink() {
       const a = document.getElementById('sample-chat-link');
       if (!a) return;
-      const absolute = new URL(SAMPLE_MENTOR_URL, window.location.href).toString();
+      const absolute = new URL(SAMPLE_MENTOR_STANDALONE_URL, window.location.href).toString();
       a.href = absolute;
       const code = a.querySelector('code');
       if (code) code.textContent = absolute;
+    })();
+
+    // Render the chat agent's trusted-issuer config so internal testers see
+    // at a glance which lab platforms this sandbox will verify tokens from.
+    (async function showAuthConfig() {
+      const escHtml = (s) => String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+      try {
+        const res = await fetch('/api/lab/auth-config');
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = document.getElementById('auth-status-list');
+        const section = document.getElementById('auth-status');
+        if (!list || !section) return;
+        if (!data.trustedIssuers || data.trustedIssuers.length === 0) {
+          section.classList.add('auth-status--empty');
+          list.innerHTML =
+            '<li><em>No issuers configured — chat agent runs unauthenticated; ' +
+            'launch tokens are ignored.</em></li>';
+          section.hidden = false;
+          return;
+        }
+        list.innerHTML = data.trustedIssuers.map(ti => (
+          '<li><code>' + escHtml(ti.issuer) + '</code>' +
+          '<span class="auth-status__aud">aud: <code>' + escHtml(ti.expectedAudience) + '</code></span>' +
+          '</li>'
+        )).join('');
+        section.hidden = false;
+      } catch { /* fail silently — auth-config is informational only */ }
     })();
   </script>
 </body>
