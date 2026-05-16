@@ -24,37 +24,46 @@
 
   // Inbound (chat -> host)
   const IN = {
-    READY:                'mentor.ready',
-    SESSION_OPENED:       'mentor.session.opened',
-    GOTO_PAGE:            'mentor.gotoInstructionsPage',
-    SEND_TEXT:            'mentor.sendTextToEnvironment',
-    SCREENSHOT_REQUEST:   'mentor.environmentScreenshot.request',
-    MESSAGE_SENT:         'mentor.message.sent',
-    MENTOR_RESPONSE:      'mentor.response',
-    ERROR:                'mentor.error',
+    READY:                          'mentor.ready',
+    SESSION_OPENED:                 'mentor.session.opened',
+    GOTO_PAGE:                      'mentor.gotoInstructionsPage',
+    SEND_TEXT:                      'mentor.sendTextToEnvironment',
+    SCREENSHOT_REQUEST:             'mentor.environmentScreenshot.request',
+    LABCLIENT_SCREENSHOT_REQUEST:   'mentor.labClientScreenshot.request',
+    CONNECTION_QUALITY_REQUEST:     'mentor.environmentConnectionQuality.request',
+    LAB_INSTRUCTIONS_REQUEST:       'mentor.labInstructions.request',
+    MESSAGE_SENT:                   'mentor.message.sent',
+    MENTOR_RESPONSE:                'mentor.response',
+    ERROR:                          'mentor.error',
   };
   // Outbound (host -> chat)
   const OUT = {
-    INIT:                 'host.init',
-    CONTEXT_UPDATE:       'host.context.update',
-    HINT_REQUEST:         'host.hint.request',
-    THEME_CHANGE:         'host.theme.change',
-    LOCALE_CHANGE:        'host.locale.change',
-    SEND_MESSAGE:         'host.send.message',
-    SCREENSHOT_RESPONSE:  'host.environmentScreenshot.response',
-    AUTH_REFRESH:         'host.auth.refresh',
+    INIT:                           'host.init',
+    CONTEXT_UPDATE:                 'host.context.update',
+    HINT_REQUEST:                   'host.hint.request',
+    THEME_CHANGE:                   'host.theme.change',
+    LOCALE_CHANGE:                  'host.locale.change',
+    SEND_MESSAGE:                   'host.send.message',
+    SCREENSHOT_RESPONSE:            'host.environmentScreenshot.response',
+    LABCLIENT_SCREENSHOT_RESPONSE:  'host.labClientScreenshot.response',
+    CONNECTION_QUALITY_RESPONSE:    'host.environmentConnectionQuality.response',
+    LAB_INSTRUCTIONS_RESPONSE:      'host.labInstructions.response',
+    AUTH_REFRESH:                   'host.auth.refresh',
   };
 
   // Sandbox-fixed identity for the simulated student. In a real lab
   // platform this comes from the authenticated user's session.
-  const SANDBOX_USER_ID = 'u-corey';
+  const SANDBOX_USER_ID = 'u-john-doe';
 
-  // Capabilities we advertise to the iframe via host.init.capabilities.
-  // The iframe uses this to show/hide capability-gated UI (currently the
-  // "Get screenshot" button). Add more entries here as we implement more
-  // host-side responses.
+  // Response message types we advertise to the iframe via
+  // host.init.capabilities. Per the spec, this is specifically for
+  // chat-initiated request/response patterns the host fulfills — the
+  // iframe uses it to gate UI on whether the host can respond.
   const HOST_CAPABILITIES = [
     OUT.SCREENSHOT_RESPONSE,
+    OUT.LABCLIENT_SCREENSHOT_RESPONSE,
+    OUT.CONNECTION_QUALITY_RESPONSE,
+    OUT.LAB_INSTRUCTIONS_RESPONSE,
   ];
 
   const $  = (id) => document.getElementById(id);
@@ -490,8 +499,11 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           labInstanceId,
           authToken: tokenResult?.authToken,
           sessionId: getStoredSessionId(labInstanceId),
-          userName: 'Chris',
+          userName: 'John Doe',
           userId: SANDBOX_USER_ID,
+          userRole: 'student',
+          userOrganizationId: 'org-acme',
+          userOrganizationName: 'Acme',
           theme: currentIframeTheme(),
           locale: 'en',
           labContext: currentContext(),
@@ -515,12 +527,37 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         break;
       }
       case IN.SCREENSHOT_REQUEST: {
-        // Reply to the screenshot request. Echo the request's envelope
-        // id so the iframe can correlate. The simulator generates a
-        // representative image on the fly (see produceFakeScreenshot)
-        // — a real lab host would capture the actual VM/desktop framebuffer.
-        const responsePayload = produceFakeScreenshot();
+        // Environment screenshot — captures only the VM/desktop surface.
+        // A real lab host would call its capture primitive against the
+        // active environment target.
+        const responsePayload = produceFakeScreenshot('environment');
         post(OUT.SCREENSHOT_RESPONSE, responsePayload, msg.id);
+        break;
+      }
+      case IN.LABCLIENT_SCREENSHOT_REQUEST: {
+        // Lab-client screenshot — captures the entire lab-client UI
+        // (instructions pane + chrome + environment area). A real host
+        // would capture its own DOM or window.
+        const responsePayload = produceFakeScreenshot('labClient');
+        post(OUT.LABCLIENT_SCREENSHOT_RESPONSE, responsePayload, msg.id);
+        break;
+      }
+      case IN.CONNECTION_QUALITY_REQUEST: {
+        // Sample host generates a random latency in [0,600] and maps it
+        // to the spec's quality enum. A real host would consult its
+        // controller / network measurement subsystem.
+        const responsePayload = produceFakeConnectionQuality();
+        post(OUT.CONNECTION_QUALITY_RESPONSE, responsePayload, msg.id);
+        break;
+      }
+      case IN.LAB_INSTRUCTIONS_REQUEST: {
+        // Return the full set of instruction pages. The simulator builds
+        // its lab content statically in `lab.pages` (markdown strings);
+        // we map each to a LabPage object using the same heading
+        // extractor that drives LabContext.pageTitle. A real host would
+        // serve whatever its authoring system provides.
+        const responsePayload = produceLabInstructions();
+        post(OUT.LAB_INSTRUCTIONS_RESPONSE, responsePayload, msg.id);
         break;
       }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
@@ -538,10 +575,16 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   //
   // To exercise the failure paths from the spec's `reason` enum, set
   // window.__simulatedScreenshotFailure to one of "not_supported",
-  // "not_available", "capture_failed" before clicking the screenshot
-  // button. The simulator returns the matching {ok:false, reason} payload
-  // instead of generating an image. (Non-spec, internal-test affordance.)
-  function produceFakeScreenshot() {
+  // "not_available", "capture_failed" before triggering a capture. The
+  // simulator returns the matching {ok:false, reason} payload instead of
+  // generating an image. (Non-spec, internal-test affordance.) Applies to
+  // both environment and lab-client screenshots.
+  //
+  // `kind`: "environment" draws a mock VM desktop with terminal output;
+  //         "labClient" draws the lab-client chrome (instructions pane +
+  //         title bar + environment area) so the two screenshots look
+  //         visually distinct in demos.
+  function produceFakeScreenshot(kind) {
     const forced = window.__simulatedScreenshotFailure;
     if (forced) {
       return {
@@ -553,61 +596,9 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     }
 
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 800;
-      canvas.height = 480;
-      const ctx2d = canvas.getContext('2d');
-
-      // Background
-      ctx2d.fillStyle = '#1f2933';
-      ctx2d.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Faux taskbar stripe
-      ctx2d.fillStyle = '#0f172a';
-      ctx2d.fillRect(0, canvas.height - 36, canvas.width, 36);
-
-      // Heading
-      ctx2d.fillStyle = '#e2e8f0';
-      ctx2d.font = '600 22px Inter, system-ui, sans-serif';
-      ctx2d.fillText('Lab Environment — simulated capture', 28, 48);
-
-      // Lab + page lines
-      ctx2d.font = '500 16px Inter, system-ui, sans-serif';
-      ctx2d.fillStyle = '#94a3b8';
-      const ctx = currentContext();
-      const lines = [
-        `Lab: ${ctx.labTitle ?? '(untitled)'}`,
-        `Page ${(ctx.currentPageIndex ?? 0) + 1} of ${ctx.totalPages ?? '?'} — ${ctx.pageTitle ?? '(no heading)'}`,
-        `Captured: ${new Date().toLocaleString()}`,
-      ];
-      lines.forEach((line, i) => ctx2d.fillText(line, 28, 84 + i * 24));
-
-      // Mock terminal
-      ctx2d.fillStyle = '#0b1220';
-      ctx2d.fillRect(28, 180, canvas.width - 56, 240);
-      ctx2d.fillStyle = '#22c55e';
-      ctx2d.font = '500 14px JetBrains Mono, ui-monospace, monospace';
-      ctx2d.fillText('PS C:\\Users\\student>', 44, 210);
-      ctx2d.fillStyle = '#cbd5e1';
-      ctx2d.fillText('Get-ChildItem -Force', 200, 210);
-      ctx2d.fillStyle = '#94a3b8';
-      [
-        '    Directory: C:\\Users\\student',
-        '',
-        'Mode    LastWriteTime         Length Name',
-        '----    -------------         ------ ----',
-        'd----   2026-04-30 10:15             Desktop',
-        'd----   2026-04-30 10:15             Documents',
-        'd----   2026-04-30 10:15             Downloads',
-        '-a---   2026-04-30 10:42         15  hello.txt',
-      ].forEach((line, i) => ctx2d.fillText(line, 44, 240 + i * 18));
-
-      return {
-        ok: true,
-        data_url: canvas.toDataURL('image/png'),
-        reason: null,
-        message: null,
-      };
+      return kind === 'labClient'
+        ? drawLabClientCapture()
+        : drawEnvironmentCapture();
     } catch (e) {
       return {
         ok: false,
@@ -616,6 +607,207 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         message: String(e?.message || e),
       };
     }
+  }
+
+  function drawEnvironmentCapture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 480;
+    const ctx2d = canvas.getContext('2d');
+
+    // Background (VM desktop)
+    ctx2d.fillStyle = '#1f2933';
+    ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Faux taskbar stripe
+    ctx2d.fillStyle = '#0f172a';
+    ctx2d.fillRect(0, canvas.height - 36, canvas.width, 36);
+
+    // Heading
+    ctx2d.fillStyle = '#e2e8f0';
+    ctx2d.font = '600 22px Inter, system-ui, sans-serif';
+    ctx2d.fillText('Lab Environment — simulated capture', 28, 48);
+
+    // Lab + page lines
+    ctx2d.font = '500 16px Inter, system-ui, sans-serif';
+    ctx2d.fillStyle = '#94a3b8';
+    const ctx = currentContext();
+    [
+      `Lab: ${ctx.labTitle ?? '(untitled)'}`,
+      `Page ${(ctx.currentPageIndex ?? 0) + 1} of ${ctx.totalPages ?? '?'} — ${ctx.pageTitle ?? '(no heading)'}`,
+      `Captured: ${new Date().toLocaleString()}`,
+    ].forEach((line, i) => ctx2d.fillText(line, 28, 84 + i * 24));
+
+    // Mock terminal
+    ctx2d.fillStyle = '#0b1220';
+    ctx2d.fillRect(28, 180, canvas.width - 56, 240);
+    ctx2d.fillStyle = '#22c55e';
+    ctx2d.font = '500 14px JetBrains Mono, ui-monospace, monospace';
+    ctx2d.fillText('PS C:\\Users\\student>', 44, 210);
+    ctx2d.fillStyle = '#cbd5e1';
+    ctx2d.fillText('Get-ChildItem -Force', 200, 210);
+    ctx2d.fillStyle = '#94a3b8';
+    [
+      '    Directory: C:\\Users\\student',
+      '',
+      'Mode    LastWriteTime         Length Name',
+      '----    -------------         ------ ----',
+      'd----   2026-04-30 10:15             Desktop',
+      'd----   2026-04-30 10:15             Documents',
+      'd----   2026-04-30 10:15             Downloads',
+      '-a---   2026-04-30 10:42         15  hello.txt',
+    ].forEach((line, i) => ctx2d.fillText(line, 44, 240 + i * 18));
+
+    return {
+      ok: true,
+      data_url: canvas.toDataURL('image/png'),
+      reason: null,
+      message: null,
+    };
+  }
+
+  function drawLabClientCapture() {
+    // Larger canvas — we're depicting the whole lab-client UI, not just
+    // the environment. Title bar across the top, instructions pane on
+    // the left, environment area on the right.
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 600;
+    const ctx2d = canvas.getContext('2d');
+    const ctx = currentContext();
+
+    // App background
+    ctx2d.fillStyle = '#f7f8fa';
+    ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Title bar
+    ctx2d.fillStyle = '#1f2933';
+    ctx2d.fillRect(0, 0, canvas.width, 48);
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.font = '600 16px Inter, system-ui, sans-serif';
+    ctx2d.fillText('Skillable Lab Client — simulated capture', 18, 30);
+    ctx2d.fillStyle = '#94a3b8';
+    ctx2d.font = '500 13px Inter, system-ui, sans-serif';
+    ctx2d.fillText(new Date().toLocaleString(), canvas.width - 220, 30);
+
+    // Instructions pane (left ~40%)
+    const paneRight = 410;
+    ctx2d.fillStyle = '#ffffff';
+    ctx2d.fillRect(0, 48, paneRight, canvas.height - 48);
+    ctx2d.fillStyle = '#e2e8f0';
+    ctx2d.fillRect(paneRight - 1, 48, 1, canvas.height - 48);
+
+    // Instructions tab strip
+    ctx2d.fillStyle = '#212121';
+    ctx2d.font = '600 14px Inter, system-ui, sans-serif';
+    ctx2d.fillText('Instructions', 24, 78);
+    ctx2d.fillStyle = '#94a3b8';
+    ctx2d.fillText('Resources', 132, 78);
+    ctx2d.fillText('Mentor', 220, 78);
+    ctx2d.fillStyle = '#008750';
+    ctx2d.fillRect(24, 88, 80, 2);
+
+    // Instructions content
+    ctx2d.fillStyle = '#94a3b8';
+    ctx2d.font = '500 11px Inter, system-ui, sans-serif';
+    ctx2d.fillText(`Page ${(ctx.currentPageIndex ?? 0) + 1} of ${ctx.totalPages ?? '?'}`, 24, 116);
+
+    ctx2d.fillStyle = '#212121';
+    ctx2d.font = '600 18px Lora, Georgia, serif';
+    ctx2d.fillText(ctx.pageTitle ?? '(no page title)', 24, 144);
+
+    ctx2d.font = '400 13px Inter, system-ui, sans-serif';
+    ctx2d.fillStyle = '#495057';
+    const bodySample = [
+      'Use the active terminal in the lab environment',
+      'to run the following command and observe the',
+      'output:',
+      '',
+      '    Get-ChildItem -Force',
+      '',
+      'You should see Desktop, Documents, and Downloads',
+      'folders listed alongside any hidden items.',
+    ];
+    bodySample.forEach((line, i) => ctx2d.fillText(line, 24, 178 + i * 20));
+
+    // Environment area (right ~60%) with embedded mock VM
+    const envLeft = paneRight + 24;
+    const envRight = canvas.width - 24;
+    const envTop = 80;
+    const envBottom = canvas.height - 24;
+    ctx2d.fillStyle = '#0f172a';
+    ctx2d.fillRect(envLeft, envTop, envRight - envLeft, envBottom - envTop);
+
+    ctx2d.fillStyle = '#e2e8f0';
+    ctx2d.font = '500 12px Inter, system-ui, sans-serif';
+    ctx2d.fillText('Active VM: windows-11 / student', envLeft + 12, envTop + 22);
+
+    ctx2d.fillStyle = '#22c55e';
+    ctx2d.font = '500 13px JetBrains Mono, ui-monospace, monospace';
+    ctx2d.fillText('PS C:\\Users\\student>', envLeft + 12, envTop + 56);
+    ctx2d.fillStyle = '#cbd5e1';
+    ctx2d.fillText('Get-ChildItem -Force', envLeft + 168, envTop + 56);
+    ctx2d.fillStyle = '#94a3b8';
+    [
+      '    Directory: C:\\Users\\student',
+      '',
+      'Mode    LastWriteTime         Length Name',
+      '----    -------------         ------ ----',
+      'd----   2026-04-30 10:15             Desktop',
+      'd----   2026-04-30 10:15             Documents',
+      'd----   2026-04-30 10:15             Downloads',
+      '-a---   2026-04-30 10:42         15  hello.txt',
+    ].forEach((line, i) => ctx2d.fillText(line, envLeft + 12, envTop + 86 + i * 18));
+
+    return {
+      ok: true,
+      data_url: canvas.toDataURL('image/png'),
+      reason: null,
+      message: null,
+    };
+  }
+
+  // Build the labInstructions response payload from the simulator's static
+  // page list. Title is the page's first H1/H2 heading (extractPageHeading);
+  // null when the page has no heading. Instructions is the raw markdown.
+  function produceLabInstructions() {
+    return {
+      pages: lab.pages.map((md, i) => ({
+        index: i,
+        title: extractPageHeading(md),
+        instructions: md,
+      })),
+    };
+  }
+
+  // Random environment-connection-quality reading. The latency is uniformly
+  // distributed across [0, 600] and mapped to the spec's quality enum:
+  //   Excellent <= 100, Good <= 250, OK <= 500, Poor > 500.
+  //
+  // For deterministic testing, set window.__simulatedConnectionLatency to a
+  // number — that exact latency is used (still mapped to the corresponding
+  // quality). Set window.__simulatedConnectionFailure to a value to suppress
+  // the response entirely (lets you exercise the iframe's timeout path).
+  function produceFakeConnectionQuality() {
+    if (window.__simulatedConnectionFailure) {
+      // Sleep this branch — the iframe will time out client-side. We model
+      // "host stopped responding" by simply not posting back. The caller
+      // already invokes us synchronously, but we can't actually block the
+      // post here — so for the demo, return a payload with extreme latency
+      // that maps to Poor. A real "no response" scenario is exercised by
+      // editing the request handler to skip the post.
+      return { latencyMilliseconds: 9999, quality: 'Poor' };
+    }
+    const forced = window.__simulatedConnectionLatency;
+    const latencyMilliseconds = Number.isFinite(forced)
+      ? Math.max(0, Math.round(forced))
+      : Math.floor(Math.random() * 601); // 0..600 inclusive
+    const quality =
+      latencyMilliseconds <= 100 ? 'Excellent' :
+      latencyMilliseconds <= 250 ? 'Good' :
+      latencyMilliseconds <= 500 ? 'OK' :
+      'Poor';
+    return { latencyMilliseconds, quality };
   }
 
   function gotoInstructionsPage(index) {

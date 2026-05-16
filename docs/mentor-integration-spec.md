@@ -114,7 +114,11 @@ the URL and how you behave once loaded.
 |----------------|----------------------|---------|
 | `theme`        | `"light"` \| `"dark"`| Initial theme. Light is the default if absent. |
 | `locale`       | string               | BCP-47 locale tag, e.g. `en-US`. |
-| `userId`       | string               | Opaque user identifier at Skillable's discretion. Not guaranteed to be stable across sessions. Identity hint only — **not a credential**. |
+
+URL parameters are limited to values the iframe wants to apply *before*
+the postMessage handshake completes (theme, locale — to avoid a flash
+of wrong-theme content before `host.init` arrives). Identity, session
+ids, and other host-supplied state travel through `host.init` only.
 
 Session continuity (resume after refresh, save/resume, etc.) does **not**
 travel through URL parameters — it travels through the postMessage
@@ -158,7 +162,7 @@ Concretely, what changes between the two modes:
 | Concern | Embed-only | Authenticated |
 |---|---|---|
 | Direct loads of your iframe URL | Anyone who learns the URL can use your mentor and consume its resources. | No `authToken` arrives; your backend refuses unauthenticated requests. |
-| `userId` / `labInstanceId` claims from postMessage | Unsigned hints — any embedder could fabricate them. | Cryptographically signed by Skillable, verifiable against the published JWKS. |
+| `userId` / `userRole` / `userOrganizationId` / `labInstanceId` claims from postMessage | Unsigned hints — any embedder could fabricate them. | Cryptographically signed by Skillable, verifiable against the published JWKS. |
 | Resuming a stored session | You trust whatever `sessionId` the iframe presents. | The verified `sub` claim proves session ownership before you honor the resume. |
 | Multi-tenant deployments (your mentor serves more than one Skillable customer or LMS) | No reliable way to distinguish them. | The verified `aud` claim identifies the customer unambiguously. |
 | Security-review answer to *"how do you authenticate inbound requests?"* | "We trust the iframe's postMessage." | "We verify RS256-signed JWTs against the issuer's published JWKS." |
@@ -180,10 +184,20 @@ with these claims:
 | `iss`           | Issuer — the Skillable environment URL, e.g. `https://labclient.labondemand.com`. |
 | `aud`           | Audience — your mentor application identifier, agreed at onboarding (typically the origin of your mentor URL). Reject tokens whose `aud` doesn't match. |
 | `sub`           | User identifier (same value as `host.init.userId`). |
+| `role`          | The user's role in this lab session (same value as `host.init.userRole`). One of `"student"`, `"instructor"`, `"labAuthor"` (extensible). Authoritative for authorization decisions. |
+| `org_id`        | Organization identifier (same value as `host.init.userOrganizationId`). |
+| `org_name`      | Organization display name (same value as `host.init.userOrganizationName`). Optional — may be omitted by privacy-sensitive deployments that pass only `org_id`. |
 | `labInstanceId` | The lab instance identifier (same value as `host.init.labInstanceId`). Authoritative; prefer over the postMessage value. |
 | `iat`           | Issued-at (UNIX seconds). |
 | `exp`           | Expiry (UNIX seconds). Typically 15 minutes after `iat`. |
 | `jti`           | Unique token identifier — used for replay protection. |
+
+When `authToken` is present, the signed JWT claims are the
+authoritative form of `userId`, `userRole`, `userOrganizationId`, and
+`userOrganizationName`. The corresponding `host.init` fields are
+convenience hints for iframes that don't implement token verification;
+iframes that do verify SHOULD pull these values from the validated JWT
+rather than from the postMessage payload.
 
 Tokens are signed with a 2048-bit RSA private key managed by Skillable.
 The private key never leaves Skillable's key-management infrastructure.
@@ -544,6 +558,9 @@ Your iframe, on load:
       "mentor.response",
       "mentor.session.opened",
       "mentor.environmentScreenshot.request",
+      "mentor.labClientScreenshot.request",
+      "mentor.environmentConnectionQuality.request",
+      "mentor.labInstructions.request",
       "mentor.error"
     ]
   }
@@ -565,13 +582,19 @@ The lab, in response:
     "labInstanceId": "98765432101234",
     "authToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6InYxIn0...",
     "sessionId": "9a3b1c0e7f2d4a8b9c1d2e3f4a5b6c7d",
-    "userName": "Corey",
+    "userName": "John Doe",
     "userId": "u-8e2c9a",
+    "userRole": "student",
+    "userOrganizationId": "org-acme",
+    "userOrganizationName": "Acme",
     "theme": "light",
     "locale": "en",
     "labContext": { /* see LabContext below */ },
     "capabilities": [
-      "host.environmentScreenshot.response"
+      "host.environmentScreenshot.response",
+      "host.labClientScreenshot.response",
+      "host.environmentConnectionQuality.response",
+      "host.labInstructions.response"
     ]
   }
 }
@@ -607,6 +630,9 @@ Your iframe, after resolving the session:
 | `host.locale.change`                 | Optional  | Locale switched at runtime. |
 | `host.send.message`                  | Optional  | Inject a user-authored message on the student's behalf. |
 | `host.environmentScreenshot.response`| Optional  | Reply to `mentor.environmentScreenshot.request` with image data or a failure reason. |
+| `host.labClientScreenshot.response`  | Optional  | Reply to `mentor.labClientScreenshot.request` with image data or a failure reason. |
+| `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
+| `host.labInstructions.response`      | Optional  | Reply to `mentor.labInstructions.request` with the full set of instruction pages for the current lab. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -619,6 +645,9 @@ iframe receives nothing, carry on with defaults.
 | `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. **Maximum 128 characters.** |
 | `userName`       | string?                        | Display-name hint. May be anonymized by the lab platform. |
 | `userId`         | string?                        | Opaque user id (identity hint, not a credential). When `authToken` is present, the JWT's `sub` claim is the authoritative form. |
+| `userRole`       | string?                        | The user's role *in this lab session*, not the totality of their account permissions. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible — receivers MUST tolerate unknown values). A lab author taking the lab to verify it should show as `"student"` during that run; the same person editing it should show as `"labAuthor"`. Identity hint, not a credential. When `authToken` is present, the JWT's `role` claim is the authoritative form. |
+| `userOrganizationId`   | string?                  | Opaque id for the user's organization. Identity hint, not a credential. When `authToken` is present, the JWT's `org_id` claim is the authoritative form. |
+| `userOrganizationName` | string?                  | Display name for the user's organization. Hosts MAY pass a friendly display name vs. the legal entity name (e.g., "Acme" rather than "Acme Holdings, Inc."), or omit this field entirely and pass only `userOrganizationId` for privacy-sensitive deployments. Iframes should be designed to work with id-only. |
 | `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
@@ -712,6 +741,124 @@ Also validate the response's envelope `id` against your set of
 outstanding requests; ignore responses with an unknown or already-
 fulfilled `id`.
 
+### `host.labClientScreenshot.response`
+**Optional.** Reply to a prior `mentor.labClientScreenshot.request`.
+Same envelope-correlation rule as `host.environmentScreenshot.response`
+(echo the request's `id`).
+
+Structurally identical to `host.environmentScreenshot.response` — same
+payload shape, same `reason` enum, same validation rules. The
+difference is in *what* the host captures:
+
+- `environmentScreenshot` → the lab environment surface only (VM
+  framebuffer, remote-controller target, etc.).
+- `labClientScreenshot` → the full lab-client chrome (instructions
+  pane, title bars, menus, navigation, environment area — whatever
+  the host considers "the entire lab UI as the student sees it").
+
+Both can be advertised independently. A host may support one and not
+the other; the iframe gates the corresponding UI per capability.
+
+| Field      | Type                  | Notes |
+|------------|-----------------------|-------|
+| `ok`       | boolean               | `true` iff the host produced image data. |
+| `data_url` | string?               | Data URL (`data:image/<format>;base64,…`) when `ok` is `true`; `null`/omitted otherwise. |
+| `reason`   | string?               | Same enum as `host.environmentScreenshot.response`: `"not_supported"`, `"not_available"`, `"capture_failed"`. `null` on success. |
+| `message`  | string?               | Optional human-readable detail. |
+
+Same validation and capability-advertisement rules apply (validate the
+data URL prefix, apply the decoded-size cap, never interpolate into raw
+HTML; omit from `host.init.capabilities` if your host can't ever produce
+lab-client screenshots).
+
+### `host.environmentConnectionQuality.response`
+**Optional.** Reply to a prior `mentor.environmentConnectionQuality.request`.
+Conveys the current connection quality between the host and the lab
+environment (VM, remote controller, etc.) — useful for the mentor to
+help diagnose lag, freezes, and disconnect-class issues the student
+might be reporting.
+
+Payload fields are camelCase (the normal spec convention; the screenshot
+payload is the localized snake_case exception).
+
+| Field                | Type                                         | Notes |
+|----------------------|----------------------------------------------|-------|
+| `latencyMilliseconds` | integer                                     | Most recent measured one-way latency to the environment, in milliseconds. The host decides how it measures (ping, controller round-trip, last network sample, etc.). |
+| `quality`            | `"Excellent"` \| `"Good"` \| `"OK"` \| `"Poor"` | Human-readable category derived by the host from the latency (and possibly other signals). The host owns the thresholds. |
+
+Suggested mapping (the sample host uses these — real hosts may tune
+them differently):
+
+- `"Excellent"` — `latencyMilliseconds <= 100`
+- `"Good"` — `latencyMilliseconds <= 250`
+- `"OK"` — `latencyMilliseconds <= 500`
+- `"Poor"` — `latencyMilliseconds > 500`
+
+This payload has no `ok`/`reason` failure wrapper: connection quality
+always has a value (a non-responding environment still reports
+something, typically `"Poor"` with a high latency). If a host cannot
+measure the environment connection at all, it should omit
+`host.environmentConnectionQuality.response` from its
+`host.init.capabilities` array rather than return a synthetic value.
+
+Also validate the response's envelope `id` against your set of
+outstanding requests; ignore responses with an unknown or already-
+fulfilled `id`.
+
+### `host.labInstructions.response`
+**Optional.** Reply to a prior `mentor.labInstructions.request`.
+Conveys the full set of instruction pages for the current lab — used by
+mentors that need to look ahead, look back, or reason over the lab as a
+whole rather than just the page the student is on right now. Companion
+to `LabContext.pageInstructions`, which always reflects only the
+current page.
+
+| Field    | Type           | Notes |
+|----------|----------------|-------|
+| `pages`  | LabPage[]      | Ordered array of instruction pages for the lab. Index `i` of the array corresponds to `LabContext.currentPageIndex` value `i`. |
+
+Each `LabPage` object:
+
+| Field           | Type    | Notes |
+|-----------------|---------|-------|
+| `index`         | integer | Zero-based page index. Matches `LabContext.currentPageIndex` semantics. Provided explicitly so consumers can verify ordering rather than rely on array position. |
+| `title`         | string? | Page heading, if the page has one. Same field shape as `LabContext.pageTitle`. `null` or omitted for pages with no heading. |
+| `instructions`  | string  | Raw page content. Same shape as `LabContext.pageInstructions` (markdown in the sample; hosts may use plain text). |
+
+The `LabPage` object is extensible — hosts may add fields (e.g. for
+embedded resources, video URLs, completion gates) in future versions
+of the spec. Iframes should ignore unknown fields.
+
+This payload has no `ok`/`reason` failure wrapper. If a host cannot
+serve the full instructions (assessment labs that intentionally hide
+upcoming pages, etc.), it should omit `host.labInstructions.response`
+from its `host.init.capabilities` array; iframes that key UI on
+look-ahead will hide it.
+
+Also validate the response's envelope `id` against your set of
+outstanding requests; ignore responses with an unknown or already-
+fulfilled `id`.
+
+**Caching.** Lab instructions are typically static for the duration of
+a lab attempt — they are authored content, not runtime state. Iframes
+SHOULD cache the response and not re-request it. Hosts that mutate
+instructions mid-attempt (rare) are expected to push a fresh
+`host.context.update` and the iframe can refetch if it wants the
+latest body. There is no explicit invalidate message in v1.
+
+**Teaching-style caveat (informational, not normative).** A mentor with
+full lab instructions has visibility into solutions and gating steps
+the student hasn't reached yet. Mentors that adopt a Socratic style
+should be deliberate about what they reveal in conversation; this is
+the iframe's responsibility, not the host's. Hosts can simply refuse to
+advertise the capability if they want to prevent look-ahead entirely.
+
+**Secret hygiene.** Same caution that applies to
+`LabContext.pageInstructions` applies here: instruction bodies may
+contain example tokens, shell history snippets, or sample credentials.
+Treat the content as untrusted input; redact obvious secrets before
+sending to upstream LLMs or persistent storage.
+
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
 expires. The host sends this periodically (typically ~60 seconds
@@ -740,6 +887,9 @@ verification model.
 | `mentor.gotoInstructionsPage`   | Optional  | Ask the lab to navigate to a specific instructions page. |
 | `mentor.sendTextToEnvironment`  | Optional  | Ask the lab to paste text into the lab environment. |
 | `mentor.environmentScreenshot.request` | Optional | Ask the lab for a screenshot of the lab environment. Reply via `host.environmentScreenshot.response`. |
+| `mentor.labClientScreenshot.request` | Optional | Ask the lab for a screenshot of the entire lab-client UI. Reply via `host.labClientScreenshot.response`. |
+| `mentor.environmentConnectionQuality.request` | Optional | Ask the lab for the environment connection quality. Reply via `host.environmentConnectionQuality.response`. |
+| `mentor.labInstructions.request` | Optional | Ask the lab for the full set of instruction pages. Reply via `host.labInstructions.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -838,6 +988,62 @@ Iframes SHOULD only show the screenshot affordance when
 `host.init.capabilities`. Iframes SHOULD apply a client-side timeout
 (10 seconds is a reasonable default) and surface a failure if no
 response arrives.
+
+### `mentor.labClientScreenshot.request`
+**Optional.** Ask the lab to capture and return an image of the entire
+lab-client UI — instructions pane, title bars, menus, environment
+area, the whole frame the student sees. Companion to
+`mentor.environmentScreenshot.request`, which captures only the
+environment surface. Two distinct messages because each has a separate
+host implementation and may be independently supported.
+
+Same envelope rules as `mentor.environmentScreenshot.request`: assign
+an `id`, expect the host to echo it on the response. No payload fields
+beyond the envelope.
+
+Iframes SHOULD only show the lab-client-screenshot affordance when
+`host.labClientScreenshot.response` is present in
+`host.init.capabilities`. Same 10-second client-side timeout
+recommendation applies.
+
+### `mentor.environmentConnectionQuality.request`
+**Optional.** Ask the lab for the current connection quality between
+the host and the lab environment (VM, remote controller, etc.).
+Mentors use this to help diagnose lag, freeze, and disconnect-class
+issues the student is reporting.
+
+No payload fields beyond the envelope; assign an `id` and expect the
+host to echo it on its `host.environmentConnectionQuality.response`.
+
+Typical triggers on the iframe side: a `/connection` slash command for
+manual checks, or an automatic check when the student's message
+mentions connection-quality keywords ("slow," "lag," "frozen," etc.).
+Both patterns are sample-agent UX choices, not spec requirements — the
+protocol just defines the request/response.
+
+Iframes SHOULD only fire this when
+`host.environmentConnectionQuality.response` is present in
+`host.init.capabilities`. Same 10-second client-side timeout
+recommendation applies.
+
+### `mentor.labInstructions.request`
+**Optional.** Ask the lab for the full set of instruction pages.
+Used by mentors that want to reason about the lab as a whole — look
+ahead to upcoming steps, recap completed steps, or build an overview
+of the entire task arc — rather than working only from
+`LabContext.pageInstructions` (which exposes only the current page).
+
+No payload fields beyond the envelope; assign an `id` and expect the
+host to echo it on its `host.labInstructions.response`.
+
+Iframes SHOULD only fire this when `host.labInstructions.response` is
+present in `host.init.capabilities`. Standard 10-second client-side
+timeout recommendation applies.
+
+Iframes SHOULD cache the response — instruction content is typically
+static for the lab attempt, and re-requesting on every relevant turn
+is wasteful. See the [response section](#hostlabinstructionsresponse)
+for full caching guidance.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful
