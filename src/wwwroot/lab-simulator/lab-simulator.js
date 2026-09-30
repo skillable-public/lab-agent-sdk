@@ -32,6 +32,7 @@
     LABCLIENT_SCREENSHOT_REQUEST:   'mentor.labClientScreenshot.request',
     CONNECTION_QUALITY_REQUEST:     'mentor.environmentConnectionQuality.request',
     LAB_INSTRUCTIONS_REQUEST:       'mentor.labInstructions.request',
+    ENVIRONMENT_COMMAND_REQUEST:    'mentor.environmentCommand.request',
     MESSAGE_SENT:                   'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
     ERROR:                          'mentor.error',
@@ -48,6 +49,7 @@
     LABCLIENT_SCREENSHOT_RESPONSE:  'host.labClientScreenshot.response',
     CONNECTION_QUALITY_RESPONSE:    'host.environmentConnectionQuality.response',
     LAB_INSTRUCTIONS_RESPONSE:      'host.labInstructions.response',
+    ENVIRONMENT_COMMAND_RESPONSE:   'host.environmentCommand.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
 
@@ -64,6 +66,7 @@
     OUT.LABCLIENT_SCREENSHOT_RESPONSE,
     OUT.CONNECTION_QUALITY_RESPONSE,
     OUT.LAB_INSTRUCTIONS_RESPONSE,
+    OUT.ENVIRONMENT_COMMAND_RESPONSE,
   ];
 
   const $  = (id) => document.getElementById(id);
@@ -560,11 +563,31 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         post(OUT.LAB_INSTRUCTIONS_RESPONSE, responsePayload, msg.id);
         break;
       }
+      case IN.ENVIRONMENT_COMMAND_REQUEST: {
+        // Out-of-band command. A real host runs it in a background session
+        // on the active environment and returns what it printed; the
+        // simulator has no machine, so it flashes the command on the fake
+        // desktop and returns canned output after a short delay.
+        const command = String(msg.payload?.command || '');
+        showEnvToast(`[background] ${command}`);
+        setTimeout(() => post(OUT.ENVIRONMENT_COMMAND_RESPONSE, produceFakeCommandResult(command), msg.id), 800);
+        break;
+      }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
       case IN.SEND_TEXT:          showEnvToast(msg.payload?.text || ''); break;
       case IN.MENTOR_RESPONSE:    showMentorBadge(); break;
     }
   });
+
+  function produceFakeCommandResult(command) {
+    if (!command.trim()) {
+      return { ok: false, stdout: '', stderr: '', exitCode: null, reason: 'failed', message: 'Empty command.' };
+    }
+    const stdout = /whoami/.test(command) ? 'student\n'
+      : /hostname/.test(command) ? 'lab-simulator\n'
+      : `(simulated) ${command}\n`;
+    return { ok: true, stdout, stderr: '', exitCode: 0, reason: null, message: null };
+  }
 
   // --- Fake screenshot generator -------------------------------------------
   //

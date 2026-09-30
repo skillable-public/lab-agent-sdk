@@ -61,6 +61,27 @@ action.
 
 For more, see [`docs/quickstart.md`](./docs/quickstart.md).
 
+### Using a real LLM
+
+The sample chat agent runs in **Simulated** mode by default: canned
+replies, no credentials needed. Switch to **Claude** mode for a real
+LLM that can act on the lab environment through the host's
+capabilities (running commands in the background, typing into the
+console, taking screenshots, changing instructions pages).
+
+Keep credentials in user-secrets, never in `appsettings.json`. From
+`src`:
+
+```bash
+dotnet user-secrets set Mentor:Mode Claude
+dotnet user-secrets set Mentor:Claude:ApiKey <your Anthropic API key>
+```
+
+To use a Claude deployment in Microsoft Foundry instead, set
+`Mentor:Claude:Provider` to `Foundry`, `Mentor:Claude:Foundry:Resource`
+to the resource name, `Mentor:Claude:Foundry:ApiKey` to its key, and
+`Mentor:Claude:Model` to the deployment name.
+
 ---
 
 ## Project layout

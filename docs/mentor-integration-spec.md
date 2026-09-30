@@ -633,6 +633,7 @@ Your iframe, after resolving the session:
 | `host.labClientScreenshot.response`  | Optional  | Reply to `mentor.labClientScreenshot.request` with image data or a failure reason. |
 | `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
 | `host.labInstructions.response`      | Optional  | Reply to `mentor.labInstructions.request` with the full set of instruction pages for the current lab. |
+| `host.environmentCommand.response`   | Optional  | Reply to `mentor.environmentCommand.request` with the command's output and exit code, or a failure reason. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -859,6 +860,27 @@ contain example tokens, shell history snippets, or sample credentials.
 Treat the content as untrusted input; redact obvious secrets before
 sending to upstream LLMs or persistent storage.
 
+### `host.environmentCommand.response`
+**Optional.** Reply to a prior `mentor.environmentCommand.request`.
+Carries what the command printed and how it exited.
+
+| Field      | Type     | Notes |
+|------------|----------|-------|
+| `ok`       | boolean  | `true` when the command ran to completion. A command that ran and failed is still `ok: true` with a non-zero `exitCode`. |
+| `stdout`   | string   | Standard output. Empty string when there was none or `ok` is `false`. Hosts may truncate very large output. |
+| `stderr`   | string   | Standard error, same rules as `stdout`. |
+| `exitCode` | integer? | Process exit code when `ok` is `true`; `null` otherwise. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"not_supported"` (the active environment can't run commands), `"not_available"` (no environment selected, or it isn't reachable yet), `"timeout"` (the command outlived `timeoutSeconds`), `"failed"` (anything else). `null` when `ok` is `true`. |
+| `message`  | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
+
+Hosts advertise this response in `host.init.capabilities` only for labs
+whose environment can run commands (typically virtualization labs with a
+reachable guest OS).
+
+Also validate the response's envelope `id` against your set of
+outstanding requests; ignore responses with an unknown or already-
+fulfilled `id`.
+
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
 expires. The host sends this periodically (typically ~60 seconds
@@ -890,6 +912,7 @@ verification model.
 | `mentor.labClientScreenshot.request` | Optional | Ask the lab for a screenshot of the entire lab-client UI. Reply via `host.labClientScreenshot.response`. |
 | `mentor.environmentConnectionQuality.request` | Optional | Ask the lab for the environment connection quality. Reply via `host.environmentConnectionQuality.response`. |
 | `mentor.labInstructions.request` | Optional | Ask the lab for the full set of instruction pages. Reply via `host.labInstructions.response`. |
+| `mentor.environmentCommand.request` | Optional | Ask the lab to run a shell command in the lab environment, out of the student's view. Reply via `host.environmentCommand.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1044,6 +1067,37 @@ Iframes SHOULD cache the response — instruction content is typically
 static for the lab attempt, and re-requesting on every relevant turn
 is wasteful. See the [response section](#hostlabinstructionsresponse)
 for full caching guidance.
+
+### `mentor.environmentCommand.request`
+**Optional.** Ask the lab to run a shell command in the active lab
+environment, in a background session the student does not see. This is
+the counterpart to `mentor.sendTextToEnvironment`: that one types into
+the console the student is watching and returns nothing; this one runs
+out of band and returns the output. Mentors use it to inspect the
+environment, check the student's work, and install or configure
+software on the student's behalf.
+
+| Field                | Type     | Notes |
+|----------------------|----------|-------|
+| `command`            | string   | Shell command. On Linux the host runs it as `bash -c <command>` as the environment's lab user. |
+| `runAsAdministrator` | boolean? | Run with elevated privileges (sudo on Linux). The host supplies any credentials elevation needs; the iframe never handles them. Defaults to `false`. |
+| `timeoutSeconds`     | integer? | Host-side limit, clamped by the host to its own maximum. Defaults to 60. |
+
+The host decides which environment the command runs against (the one
+the student has selected) and how it reaches it; the iframe does not
+name a machine or supply credentials. Commands run non-interactively:
+anything that waits for input hangs until `timeoutSeconds`.
+
+Iframes SHOULD only fire this when `host.environmentCommand.response`
+is present in `host.init.capabilities`. Because commands can run long,
+the standard 10-second timeout does not apply: wait at least
+`timeoutSeconds` plus a margin for the round trip.
+
+**Trust.** A command runs with the lab user's rights (or the
+administrator's, when requested) inside the student's lab environment.
+Hosts SHOULD log every command with the lab instance it ran against.
+Mentors SHOULD tell the student what they are about to change before
+changing it.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful
