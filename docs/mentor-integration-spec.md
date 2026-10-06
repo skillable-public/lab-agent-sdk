@@ -1079,14 +1079,20 @@ software on the student's behalf.
 
 | Field                | Type     | Notes |
 |----------------------|----------|-------|
-| `command`            | string   | Shell command. On Linux the host runs it as `bash -c <command>` as the environment's lab user. |
+| `command`            | string   | Shell command. On an `ssh` endpoint the host runs it with bash; on a `powershell` endpoint, with Windows PowerShell. It runs as the endpoint's user. |
+| `machine`            | string?  | Alias of the VM to run on (`LabContext.machines[].alias`). Defaults to the VM the student has selected. |
+| `endpoint`           | string?  | Alias of the endpoint to run through, on that VM. It must be `mentorAccessible`. When omitted, the host uses the selected endpoint if the mentor can use it, otherwise the VM's one mentor-accessible endpoint. |
 | `runAsAdministrator` | boolean? | Run with elevated privileges (sudo on Linux). The host supplies any credentials elevation needs; the iframe never handles them. Defaults to `false`. |
 | `timeoutSeconds`     | integer? | Host-side limit, clamped by the host to its own maximum. Defaults to 60. |
 
-The host decides which environment the command runs against (the one
-the student has selected) and how it reaches it; the iframe does not
-name a machine or supply credentials. Commands run non-interactively:
-anything that waits for input hangs until `timeoutSeconds`.
+The mentor may target any VM in `LabContext.machines`, not just the
+selected one; the selection is context for what the student is
+probably talking about. The host decides how it reaches the endpoint,
+and the iframe never supplies addresses or credentials. When the target
+can't be resolved (unknown alias, an endpoint without mentor access, or
+several candidates and none named) the host replies `ok: false` with a
+`message` naming the problem. Commands run non-interactively: anything
+that waits for input hangs until `timeoutSeconds`.
 
 Iframes SHOULD only fire this when `host.environmentCommand.response`
 is present in `host.init.capabilities`. Because commands can run long,
@@ -1168,10 +1174,35 @@ within a page are a lab-authoring concept and are not modeled here.
 | `totalPages`       | integer?                     | Total number of pages. |
 | `pageTitle`        | string?                      | The page's heading text, if it starts with one. When absent, display as `Page {currentPageIndex + 1}`. |
 | `pageInstructions` | string?                      | Current page body as **markdown**. Use this to ground mentor responses. |
-| `environment`      | `{ [key: string]: string }`? | Free-form facts (OS, shell, cwd, last command, etc.). |
+| `environment`      | `{ [key: string]: string }`? | Facts about the environment the student has selected. Well-known keys: `name` (display name), `os`, and for virtual machine labs `machine` (the selected VM's alias) and `endpoint` (the selected endpoint's alias, when the student is on an endpoint rather than the VM's own console). Hosts may add free-form keys (shell, cwd, last command, etc.). |
+| `machines`         | LabMachine[]?                | The lab's virtual machines, including ones the student can't see, and each one's endpoints. Sent in `host.init` only, since it is fixed for the lab attempt; a `host.context.update` without it means unchanged. Absent outside virtual machine labs. See below. |
 
 All fields are optional. Build your mentor to degrade gracefully when
 any one is missing, and to re-ground on every update.
+
+Each `LabMachine`:
+
+| Field            | Type             | Notes |
+|------------------|------------------|-------|
+| `alias`          | string?          | Stable name for the VM within the lab. The name `mentor.environmentCommand.request` targets it by. |
+| `name`           | string?          | Display name, as the student sees it. |
+| `os`             | string?          | Operating system, as the author described it. |
+| `studentVisible` | boolean          | Whether the student can see this VM. Mentors may act on hidden VMs; say so when you do. |
+| `endpoints`      | LabEndpoint[]    | Ways into the VM (SSH, PowerShell, RDP, HTTP, etc.). |
+
+Each `LabEndpoint`:
+
+| Field              | Type    | Notes |
+|--------------------|---------|-------|
+| `alias`            | string? | Stable name for the endpoint within its VM. |
+| `name`             | string? | Display name. |
+| `description`      | string? | The author's description, if any. |
+| `protocol`         | string? | `ssh`, `powershell`, `rdp`, `vnc`, `telnet`, `http` or `https`. |
+| `studentVisible`   | boolean | Whether the student can see this endpoint. |
+| `mentorAccessible` | boolean | Whether `mentor.environmentCommand.request` can run commands through it. |
+
+The catalog carries no addresses or credentials. Hosts may add fields;
+ignore ones you don't recognize.
 
 **Timing note.** Some fields — `environment` in particular — depend on
 lab subsystems that may not be ready when the lab fires `host.init`. The
@@ -1191,7 +1222,18 @@ Example:
   "totalPages": 4,
   "pageTitle": "List files in your home directory",
   "pageInstructions": "# List files\n\nRun `ls -la` to see hidden files\u2026",
-  "environment": { "os": "ubuntu-22.04", "shell": "bash", "cwd": "/home/student" }
+  "environment": { "name": "Ubuntu Server", "os": "ubuntu-22.04", "machine": "server", "endpoint": null },
+  "machines": [
+    {
+      "alias": "server",
+      "name": "Ubuntu Server",
+      "os": "ubuntu-22.04",
+      "studentVisible": true,
+      "endpoints": [
+        { "alias": "ssh", "name": "SSH", "description": null, "protocol": "ssh", "studentVisible": false, "mentorAccessible": true }
+      ]
+    }
+  ]
 }
 ```
 

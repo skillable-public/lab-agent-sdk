@@ -306,18 +306,38 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     return heading || `Page ${index + 1}`;
   }
 
-  function currentContext() {
+  // The simulated lab's machines, matching the VM tabs. Sent in host.init
+  // only; context updates leave it out, which means unchanged.
+  const LAB_MACHINES = [
+    {
+      alias: 'windows11', name: 'Windows 11', os: 'windows-11', studentVisible: true,
+      endpoints: [
+        { alias: 'pwsh', name: 'PowerShell', description: null, protocol: 'powershell', studentVisible: false, mentorAccessible: true },
+      ],
+    },
+    {
+      alias: 'ubuntu', name: 'Ubuntu 26', os: 'ubuntu-26.04', studentVisible: true,
+      endpoints: [
+        { alias: 'ssh', name: 'SSH', description: null, protocol: 'ssh', studentVisible: true, mentorAccessible: true },
+        { alias: 'web', name: 'Web app', description: 'The lab web server', protocol: 'https', studentVisible: true, mentorAccessible: false },
+      ],
+    },
+  ];
+
+  function currentContext(includeMachines) {
     const md = lab.pages[currentPageIndex];
     const heading = extractPageHeading(md);
-    return {
+    const context = {
       labId: lab.labId,
       labTitle: lab.labTitle,
       currentPageIndex,                            // zero-based
       totalPages: lab.pages.length,
       pageTitle: heading ?? undefined,             // omit when the page has no heading
       pageInstructions: md,                        // raw markdown
-      environment: { os: 'windows-11', shell: 'powershell', cwd: 'C:\\Users\\student' },
+      environment: { name: 'Windows 11', os: 'windows-11', machine: 'windows11', endpoint: null, shell: 'powershell', cwd: 'C:\\Users\\student' },
     };
+    if (includeMachines) context.machines = LAB_MACHINES;
+    return context;
   }
 
   function renderCurrentPage() {
@@ -509,7 +529,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           userOrganizationName: 'Acme',
           theme: currentIframeTheme(),
           locale: 'en',
-          labContext: currentContext(),
+          labContext: currentContext(true),
           capabilities: HOST_CAPABILITIES,
         });
         if (tokenResult) {
@@ -569,8 +589,9 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         // simulator has no machine, so it flashes the command on the fake
         // desktop and returns canned output after a short delay.
         const command = String(msg.payload?.command || '');
-        showEnvToast(`[background] ${command}`);
-        setTimeout(() => post(OUT.ENVIRONMENT_COMMAND_RESPONSE, produceFakeCommandResult(command), msg.id), 800);
+        const machine = msg.payload?.machine || 'windows11';
+        showEnvToast(`[background on ${machine}] ${command}`);
+        setTimeout(() => post(OUT.ENVIRONMENT_COMMAND_RESPONSE, produceFakeCommandResult(command, machine), msg.id), 800);
         break;
       }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
@@ -579,13 +600,16 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     }
   });
 
-  function produceFakeCommandResult(command) {
+  function produceFakeCommandResult(command, machine) {
     if (!command.trim()) {
       return { ok: false, stdout: '', stderr: '', exitCode: null, reason: 'failed', message: 'Empty command.' };
     }
+    if (!LAB_MACHINES.some((m) => m.alias === machine)) {
+      return { ok: false, stdout: '', stderr: '', exitCode: null, reason: 'not_available', message: `There is no virtual machine with the alias '${machine}'.` };
+    }
     const stdout = /whoami/.test(command) ? 'student\n'
-      : /hostname/.test(command) ? 'lab-simulator\n'
-      : `(simulated) ${command}\n`;
+      : /hostname/.test(command) ? `${machine}\n`
+      : `(simulated on ${machine}) ${command}\n`;
     return { ok: true, stdout, stderr: '', exitCode: 0, reason: null, message: null };
   }
 
