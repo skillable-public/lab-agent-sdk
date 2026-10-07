@@ -1084,7 +1084,7 @@ software on the student's behalf.
 | `machine`            | string?  | Alias of the VM to run on (`LabContext.machines[].alias`). Defaults to the VM the student has selected. |
 | `endpoint`           | string?  | Alias of the endpoint to run through, on that VM. It must be `mentorAccessible`. When omitted, the host uses the selected endpoint if the mentor can use it, otherwise the VM's one mentor-accessible endpoint. |
 | `runAsAdministrator` | boolean? | Run with elevated privileges (sudo on Linux). The host supplies any credentials elevation needs; the iframe never handles them. A host that can't elevate on an endpoint replies `ok: false` with reason `"not_supported"`. Defaults to `false`. |
-| `timeoutSeconds`     | integer? | Host-side limit, clamped by the host to its own maximum. Defaults to 60. |
+| `timeoutSeconds`     | integer? | How long the command may run before the host ends it and replies `"timeout"`. Defaults to 60. Hosts may enforce a minimum and may cap it; the iframe owns choosing a sensible value (see below). |
 
 The mentor may target any VM in `LabContext.machines`, not just the
 selected one; the selection is context for what the student is
@@ -1096,6 +1096,20 @@ reason `"failed"` and a `message` naming the problem. Hosts may also
 limit command length and how many commands run at once; keep commands
 short and split long scripts into several requests. Commands run non-interactively: anything
 that waits for input hangs until `timeoutSeconds`.
+
+**Choosing a timeout (recommended).** A host may place no upper limit on
+`timeoutSeconds`, so the iframe is responsible for not waiting longer
+than the work warrants:
+
+- Give each command a timeout that fits what it should take: the default
+  60 seconds or less for checks and small changes, several minutes for a
+  package install, longer only for work known to be slow.
+- For work that may run for a long time, such as large installs, updates
+  or builds, start it in the background on the VM and check on it with
+  short commands, rather than holding one long-running command open.
+- When a result is no longer needed, for example because the student
+  stopped the mentor or changed course, cancel it with
+  `mentor.environmentCommand.cancel` instead of letting it run out.
 
 Iframes SHOULD only fire this when `host.environmentCommand.response`
 is present in `host.init.capabilities`. Because commands can run long,
