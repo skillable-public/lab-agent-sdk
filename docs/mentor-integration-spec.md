@@ -652,7 +652,7 @@ iframe receives nothing, carry on with defaults.
 | `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
-| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. Currently `host.environmentScreenshot.response` is the only entry; the array will grow as the protocol gains more request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
+| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -867,10 +867,10 @@ Carries what the command printed and how it exited.
 | Field      | Type     | Notes |
 |------------|----------|-------|
 | `ok`       | boolean  | `true` when the command ran to completion. A command that ran and failed is still `ok: true` with a non-zero `exitCode`. |
-| `stdout`   | string   | Standard output. Empty string when there was none or `ok` is `false`. Hosts may truncate very large output. |
-| `stderr`   | string   | Standard error, same rules as `stdout`. |
+| `stdout`   | string   | Standard output. Empty string when there was none or `ok` is `false`. Hosts may truncate very large output, or refuse it with `ok: false` and reason `"failed"`. |
+| `stderr`   | string   | Standard error, same rules as `stdout`. Hosts that run commands through a terminal may merge standard error into `stdout` and leave this empty, so don't read an empty `stderr` as "no errors". |
 | `exitCode` | integer? | Process exit code when `ok` is `true`; `null` otherwise. |
-| `reason`   | string?  | Failure category when `ok` is `false`: `"not_supported"` (the active environment can't run commands), `"not_available"` (no environment selected, or it isn't reachable yet), `"timeout"` (the command outlived `timeoutSeconds`), `"failed"` (anything else). `null` when `ok` is `true`. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"not_supported"` (the active environment can't run commands, or can't run this one as requested, such as elevation on an endpoint that doesn't support it; this applies to the request, not the capability, so later commands may still succeed), `"not_available"` (no environment selected, or it isn't reachable; usually transient, so retrying later may succeed), `"timeout"` (the command outlived `timeoutSeconds`), `"failed"` (anything else, including a target that can't be resolved and a command the host refuses, such as one over its length limit or one sent while too many of the lab's commands are already running). `null` when `ok` is `true`. |
 | `message`  | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 
 Hosts advertise this response in `host.init.capabilities` only for labs
@@ -1082,7 +1082,7 @@ software on the student's behalf.
 | `command`            | string   | Shell command. On an `ssh` endpoint the host runs it with bash; on a `powershell` endpoint, with Windows PowerShell. It runs as the endpoint's user. |
 | `machine`            | string?  | Alias of the VM to run on (`LabContext.machines[].alias`). Defaults to the VM the student has selected. |
 | `endpoint`           | string?  | Alias of the endpoint to run through, on that VM. It must be `mentorAccessible`. When omitted, the host uses the selected endpoint if the mentor can use it, otherwise the VM's one mentor-accessible endpoint. |
-| `runAsAdministrator` | boolean? | Run with elevated privileges (sudo on Linux). The host supplies any credentials elevation needs; the iframe never handles them. Defaults to `false`. |
+| `runAsAdministrator` | boolean? | Run with elevated privileges (sudo on Linux). The host supplies any credentials elevation needs; the iframe never handles them. A host that can't elevate on an endpoint replies `ok: false` with reason `"not_supported"`. Defaults to `false`. |
 | `timeoutSeconds`     | integer? | Host-side limit, clamped by the host to its own maximum. Defaults to 60. |
 
 The mentor may target any VM in `LabContext.machines`, not just the
@@ -1090,8 +1090,10 @@ selected one; the selection is context for what the student is
 probably talking about. The host decides how it reaches the endpoint,
 and the iframe never supplies addresses or credentials. When the target
 can't be resolved (unknown alias, an endpoint without mentor access, or
-several candidates and none named) the host replies `ok: false` with a
-`message` naming the problem. Commands run non-interactively: anything
+several candidates and none named) the host replies `ok: false` with
+reason `"failed"` and a `message` naming the problem. Hosts may also
+limit command length and how many commands run at once; keep commands
+short and split long scripts into several requests. Commands run non-interactively: anything
 that waits for input hangs until `timeoutSeconds`.
 
 Iframes SHOULD only fire this when `host.environmentCommand.response`
@@ -1206,10 +1208,10 @@ ignore ones you don't recognize.
 
 **Timing note.** Some fields — `environment` in particular — depend on
 lab subsystems that may not be ready when the lab fires `host.init`. The
-host is expected to send `host.init` eagerly on receipt of `mentor.ready`
-with whatever context is available at that moment, and then deliver the
-remaining fields via a follow-up `host.context.update` once they
-populate. Treat `environment` (and any field) as *may arrive later* — do
+host sends `host.init` promptly after `mentor.ready`, possibly after a
+short wait for the student's environment selection, with whatever
+context is available at that moment, and then delivers the remaining
+fields via a follow-up `host.context.update` once they populate. Treat `environment` (and any field) as *may arrive later* — do
 not assume the value present in `host.init` is final.
 
 Example:
