@@ -1114,7 +1114,9 @@ than the work warrants:
 Iframes SHOULD only fire this when `host.environmentCommand.response`
 is present in `host.init.capabilities`. Because commands can run long,
 the standard 10-second timeout does not apply: wait at least
-`timeoutSeconds` plus a margin for the round trip.
+`timeoutSeconds` plus a margin. Hosts may start the clock only once the
+command is typed, after opening a session to the endpoint, so allow at
+least 30 seconds beyond `timeoutSeconds`.
 
 **Trust.** A command runs with the lab user's rights (or the
 administrator's, when requested) inside the student's lab environment.
