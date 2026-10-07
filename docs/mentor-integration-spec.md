@@ -870,7 +870,7 @@ Carries what the command printed and how it exited.
 | `stdout`   | string   | Standard output. Empty string when there was none or `ok` is `false`. Hosts may truncate very large output, or refuse it with `ok: false` and reason `"failed"`. |
 | `stderr`   | string   | Standard error, same rules as `stdout`. Hosts that run commands through a terminal may merge standard error into `stdout` and leave this empty, so don't read an empty `stderr` as "no errors". |
 | `exitCode` | integer? | Process exit code when `ok` is `true`; `null` otherwise. |
-| `reason`   | string?  | Failure category when `ok` is `false`: `"not_supported"` (the active environment can't run commands, or can't run this one as requested, such as elevation on an endpoint that doesn't support it; this applies to the request, not the capability, so later commands may still succeed), `"not_available"` (no environment selected, or it isn't reachable; usually transient, so retrying later may succeed), `"timeout"` (the command outlived `timeoutSeconds`), `"failed"` (anything else, including a target that can't be resolved and a command the host refuses, such as one over its length limit or one sent while too many of the lab's commands are already running). `null` when `ok` is `true`. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"not_supported"` (the active environment can't run commands, or can't run this one as requested, such as elevation on an endpoint that doesn't support it; this applies to the request, not the capability, so later commands may still succeed), `"not_available"` (no environment selected, or it isn't reachable; usually transient, so retrying later may succeed), `"timeout"` (the command outlived `timeoutSeconds`), `"cancelled"` (the iframe cancelled it with `mentor.environmentCommand.cancel` while it was running; the host ended it on the VM, but it may have partly run; `message` is `"The command was cancelled."`), `"failed"` (anything else, including a target that can't be resolved and a command the host refuses, such as one over its length limit or one sent while too many of the lab's commands are already running). `null` when `ok` is `true`. |
 | `message`  | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 
 Hosts advertise this response in `host.init.capabilities` only for labs
@@ -913,6 +913,7 @@ verification model.
 | `mentor.environmentConnectionQuality.request` | Optional | Ask the lab for the environment connection quality. Reply via `host.environmentConnectionQuality.response`. |
 | `mentor.labInstructions.request` | Optional | Ask the lab for the full set of instruction pages. Reply via `host.labInstructions.response`. |
 | `mentor.environmentCommand.request` | Optional | Ask the lab to run a shell command in the lab environment, out of the student's view. Reply via `host.environmentCommand.response`. |
+| `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1106,6 +1107,30 @@ administrator's, when requested) inside the student's lab environment.
 Hosts SHOULD log every command with the lab instance it ran against.
 Mentors SHOULD tell the student what they are about to change before
 changing it.
+
+### `mentor.environmentCommand.cancel`
+**Optional.** Ask the lab to abort a command started by an earlier
+`mentor.environmentCommand.request`, typically because the student
+stopped the mentor. Fire-and-forget: the host sends no reply to this
+message itself.
+
+| Field       | Type   | Notes |
+|-------------|--------|-------|
+| `requestId` | string | The envelope `id` of the `mentor.environmentCommand.request` to cancel. |
+
+If that command is still running, the host aborts it, ending it on the
+VM, and answers the original request with `host.environmentCommand.response`:
+`ok: false`, reason `"cancelled"`, message `"The command was cancelled."`,
+`exitCode: null`. If the command has already finished, or the id is
+unknown, the host ignores the cancel; the original request keeps
+whatever answer it got. Either way, exactly one response arrives for the
+original request, so an iframe can keep waiting on it as usual or stop
+waiting as soon as it sends the cancel.
+
+A cancelled command may have done part of its work before it was
+ended. Gated by the same capability as the request: iframes SHOULD only
+send it when `host.environmentCommand.response` is present in
+`host.init.capabilities`.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful

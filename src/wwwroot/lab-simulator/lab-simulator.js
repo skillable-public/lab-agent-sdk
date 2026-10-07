@@ -33,7 +33,8 @@
     CONNECTION_QUALITY_REQUEST:     'mentor.environmentConnectionQuality.request',
     LAB_INSTRUCTIONS_REQUEST:       'mentor.labInstructions.request',
     ENVIRONMENT_COMMAND_REQUEST:    'mentor.environmentCommand.request',
-    MESSAGE_SENT:                   'mentor.message.sent',
+    ENVIRONMENT_COMMAND_CANCEL:     'mentor.environmentCommand.cancel',
+    MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
     ERROR:                          'mentor.error',
   };
@@ -494,6 +495,10 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     }, delay);
   }
 
+  // Fake background commands still running, by request envelope id, so a
+  // mentor.environmentCommand.cancel can stop one before it answers.
+  const runningCommands = new Map();
+
   window.addEventListener('message', async (event) => {
     if (!$iframe || event.source !== $iframe.contentWindow) return;
     const msg = event.data;
@@ -591,7 +596,26 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         const command = String(msg.payload?.command || '');
         const machine = msg.payload?.machine || 'windows11';
         showEnvToast(`[background on ${machine}] ${command}`);
-        setTimeout(() => post(OUT.ENVIRONMENT_COMMAND_RESPONSE, produceFakeCommandResult(command, machine), msg.id), 800);
+        runningCommands.set(msg.id, setTimeout(() => {
+          runningCommands.delete(msg.id);
+          post(OUT.ENVIRONMENT_COMMAND_RESPONSE, produceFakeCommandResult(command, machine), msg.id);
+        }, 800));
+        break;
+      }
+      case IN.ENVIRONMENT_COMMAND_CANCEL: {
+        // Fire-and-forget. A command that already finished, or an unknown
+        // id, is ignored; a running one is ended and its original request
+        // answered as cancelled.
+        const requestId = msg.payload?.requestId;
+        const timer = runningCommands.get(requestId);
+        if (timer === undefined) break;
+        clearTimeout(timer);
+        runningCommands.delete(requestId);
+        post(OUT.ENVIRONMENT_COMMAND_RESPONSE, {
+          ok: false, stdout: '', stderr: '', exitCode: null,
+          reason: 'cancelled',
+          message: 'The command was cancelled.',
+        }, requestId);
         break;
       }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
