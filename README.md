@@ -92,7 +92,7 @@ and the model conversation live:
 |------------|------------|-------|
 | `InMemory` | Trying things out | The default. Sessions are lost on restart. |
 | `Sqlite`   | One instance, at no cost | A local file, `mentor-sessions.db` by default (`SessionStore:Sqlite:ConnectionString`). Running locally in Development uses it, so a session survives a restart. |
-| `Cosmos`   | Several instances behind a load balancer | Azure Cosmos DB, one container partitioned by `/sessionId`. Set `SessionStore:Cosmos:ConnectionString` (in user-secrets) or `AccountEndpoint` to sign in with `DefaultAzureCredential`. **Not yet tested** against a Cosmos DB account or the emulator. |
+| `Cosmos`   | Several instances behind a load balancer | Azure Cosmos DB, one container partitioned by `/sessionId`. Set `SessionStore:Cosmos:ConnectionString` (in user-secrets) or `AccountEndpoint` to sign in with `DefaultAzureCredential`. Use a serverless account for low traffic. |
 
 Sessions expire `SessionStore:SessionLifetimeDays` (default 30) after
 they were last written.
