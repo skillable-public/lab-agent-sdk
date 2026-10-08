@@ -83,6 +83,20 @@ To use a Claude deployment in Microsoft Foundry instead, set
 to the resource name, `Mentor:Claude:Foundry:ApiKey` to its key, and
 `Mentor:Claude:Model` to the deployment name.
 
+### Session storage
+
+`SessionStore:Provider` picks where mentor sessions, their transcript
+and the model conversation live:
+
+| Provider   | Use it for | Notes |
+|------------|------------|-------|
+| `InMemory` | Trying things out | The default. Sessions are lost on restart. |
+| `Sqlite`   | One instance, at no cost | A local file, `mentor-sessions.db` by default (`SessionStore:Sqlite:ConnectionString`). Running locally in Development uses it, so a session survives a restart. |
+| `Cosmos`   | Several instances behind a load balancer | Azure Cosmos DB, one container partitioned by `/sessionId`. Set `SessionStore:Cosmos:ConnectionString` (in user-secrets) or `AccountEndpoint` to sign in with `DefaultAzureCredential`. **Not yet tested** against a Cosmos DB account or the emulator. |
+
+Sessions expire `SessionStore:SessionLifetimeDays` (default 30) after
+they were last written.
+
 ---
 
 ## Project layout
@@ -96,7 +110,7 @@ ai-mentor-integration-sandbox/
 |  +- appsettings.json                 # CORS allow-list, simulated mentor config
 |  +- Properties/launchSettings.json
 |  +- Models/                          # ChatMessage, LabContext, requests
-|  +- Services/                        # IMentorService + InMemorySessionStore
+|  +- Services/                        # IMentorService + the session stores
 |  +- wwwroot/                         # static assets served by the app
 |     +- lab-simulator/                  # the simulated Skillable lab page
 |     |  +- index.html                 #   chooser (landing)
