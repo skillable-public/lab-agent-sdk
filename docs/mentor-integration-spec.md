@@ -963,8 +963,10 @@ into their instructions advertise this response in
 | `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page, or no task matches), `"ambiguous"` (the quote matches more than one task), `"not_visible"` (the task is in a part of the page the student hasn't opened), `"not_supported"` (the lab has no instructions), `"failed"` (anything else, including a lab that requires tasks in order refusing a task while earlier ones are unchecked). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 
-Hosts advertise this response in `host.init.capabilities` only when
-the lab's instructions have tasks.
+Hosts that can check tasks advertise this response in
+`host.init.capabilities`, whether or not the current instructions have
+any, since `host.init` can go out before they render; a lab without
+tasks answers `"not_found"`.
 
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
