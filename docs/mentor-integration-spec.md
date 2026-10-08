@@ -1345,12 +1345,9 @@ exactly a student's reach: the student's machine catalog, and the
 student's rules for commands and credentials, even though the user could
 see more. It's not a role the mentor plays. After the switch the host
 sends `host.context.update` with the new `userRole` and machines. The
-mentor's own conversation still holds what it saw before, which the host
-can't take back, so give each view its own conversation: the sample chat
-starts a fresh session for the student view, exactly as a new student
-would get, and resumes the author's session on the way back. Announce
-each switch with `mentor.session.opened` so the host round-trips the
-session for the view in use.
+mentor's own conversation still holds what it saw before, so a mentor
+should work only from the new context and not reveal anything the
+student view doesn't show.
 
 **It lasts.** The Skillable lab platform keeps the view for the lab
 instance across page reloads, until the author switches back.
