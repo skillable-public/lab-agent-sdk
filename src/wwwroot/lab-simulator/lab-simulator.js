@@ -36,6 +36,7 @@
     ENVIRONMENT_COMMAND_CANCEL:     'mentor.environmentCommand.cancel',
     TYPE_CREDENTIAL_REQUEST:        'mentor.environmentTypeCredential.request',
     SHOW_IN_INSTRUCTIONS_REQUEST:   'mentor.showInInstructions.request',
+    VIEW_AS_REQUEST:                'mentor.viewAs.request',
     ENVIRONMENT_KEYS_REQUEST:       'mentor.environmentKeys.request',
     MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
@@ -56,6 +57,7 @@
     ENVIRONMENT_COMMAND_RESPONSE:   'host.environmentCommand.response',
     TYPE_CREDENTIAL_RESPONSE:       'host.environmentTypeCredential.response',
     SHOW_IN_INSTRUCTIONS_RESPONSE:  'host.showInInstructions.response',
+    VIEW_AS_RESPONSE:               'host.viewAs.response',
     ENVIRONMENT_KEYS_RESPONSE:      'host.environmentKeys.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
@@ -647,6 +649,10 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         post(OUT.ENVIRONMENT_KEYS_RESPONSE, { ok: true, reason: null, message: null }, msg.id);
         break;
       }
+      case IN.VIEW_AS_REQUEST:
+        // The simulated user is a student, who has no other view to switch to.
+        post(OUT.VIEW_AS_RESPONSE, { ok: false, reason: 'not_supported', message: 'Only a lab author can change how the mentor treats them.' }, msg.id);
+        break;
       case IN.SHOW_IN_INSTRUCTIONS_REQUEST:
         post(OUT.SHOW_IN_INSTRUCTIONS_RESPONSE, showFakePointer(msg.payload || {}), msg.id);
         break;

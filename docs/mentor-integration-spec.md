@@ -637,6 +637,7 @@ Your iframe, after resolving the session:
 | `host.environmentTypeCredential.response` | Optional | Reply to `mentor.environmentTypeCredential.request`: whether the credential was typed. Never carries the credential. |
 | `host.showInInstructions.response`   | Optional  | Reply to `mentor.showInInstructions.request`: whether the lab is showing the spot. |
 | `host.environmentKeys.response`      | Optional  | Reply to `mentor.environmentKeys.request`: whether the keys were pressed. |
+| `host.viewAs.response`               | Optional  | Reply to `mentor.viewAs.request`: whether the view changed. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -666,6 +667,11 @@ re-ground.
 | Field      | Type                             |
 |------------|----------------------------------|
 | `context`  | [`LabContext`](#10-labcontext)   |
+| `userRole` | string? (same values as `host.init.userRole`) |
+
+`userRole` is present when the role the mentor should treat the user as
+has changed, which happens when a lab author switches view with
+`mentor.viewAs.request`. Absent means unchanged.
 
 ### `host.hint.request`
 **Optional.** Ask the mentor to produce a proactive hint without the
@@ -916,6 +922,18 @@ fulfilled `id`.
 Hosts advertise this response in `host.init.capabilities` when the lab
 has a console to press keys in.
 
+### `host.viewAs.response`
+**Optional.** Reply to a prior `mentor.viewAs.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the view changed (or already was the one asked for). The host then sends `host.context.update` with the new `userRole` and the machines that view shows. |
+| `reason`  | string?  | `"not_supported"` when the user isn't a lab author, `"failed"` for anything else, such as an unknown role. `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
+
+Hosts advertise this response in `host.init.capabilities` only to users
+who can switch, that is lab authors.
+
 ### `host.showInInstructions.response`
 **Optional.** Reply to a prior `mentor.showInInstructions.request`.
 Says whether the lab is now showing the spot.
@@ -965,6 +983,7 @@ verification model.
 | `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
 | `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the student has selected. Reply via `host.environmentTypeCredential.response`. |
 | `mentor.showInInstructions.request` | Optional | Ask the lab to scroll its instructions to a spot (a phrase, an image or an activity) and mark it. Reply via `host.showInInstructions.response`. |
+| `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
@@ -1308,6 +1327,30 @@ such as anything with Win or Ctrl with an arrow, answer
 `"not_supported"`.
 
 There's no mouse: point the student at anything only a click can reach.
+
+### `mentor.viewAs.request`
+**Optional.** Ask the lab to treat a lab author as a student for
+everything the mentor can see and do, so they can test the lab the way
+a student will meet it, or to treat them as the author again. Offer it
+when `host.viewAs.response` is in `host.init.capabilities`, for example
+as a toggle in the chat, and when the author asks for it in the
+conversation.
+
+| Field  | Type                          | Notes |
+|--------|-------------------------------|-------|
+| `role` | `"student"` \| `"labAuthor"` | The view to switch to. |
+
+**The host enforces the view.** In student view the host gives the mentor
+exactly a student's reach: the student's machine catalog, and the
+student's rules for commands and credentials, even though the user could
+see more. It's not a role the mentor plays. After the switch the host
+sends `host.context.update` with the new `userRole` and machines. The
+mentor's own conversation still holds what it saw before, so a mentor
+should work only from the new context and not reveal anything the
+student view doesn't show.
+
+**It lasts.** The Skillable lab platform keeps the view for the lab
+instance across page reloads, until the author switches back.
 
 ### `mentor.showInInstructions.request`
 **Optional.** Ask the lab to bring the student's attention to a spot in
