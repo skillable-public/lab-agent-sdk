@@ -636,6 +636,7 @@ Your iframe, after resolving the session:
 | `host.environmentCommand.response`   | Optional  | Reply to `mentor.environmentCommand.request` with the command's output and exit code, or a failure reason. |
 | `host.environmentTypeCredential.response` | Optional | Reply to `mentor.environmentTypeCredential.request`: whether the credential was typed. Never carries the credential. |
 | `host.showInInstructions.response`   | Optional  | Reply to `mentor.showInInstructions.request`: whether the lab is showing the spot. |
+| `host.environmentKeys.response`      | Optional  | Reply to `mentor.environmentKeys.request`: whether the keys were pressed. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -903,6 +904,18 @@ Also validate the response's envelope `id` against your set of
 outstanding requests; ignore responses with an unknown or already-
 fulfilled `id`.
 
+### `host.environmentKeys.response`
+**Optional.** Reply to a prior `mentor.environmentKeys.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the host pressed the keys (or queued them behind text still being typed). It says nothing about what they did; take a screenshot to see. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_available"` (nothing is selected to press keys in), `"not_supported"` (the selected console can't take these keys, such as a terminal asked for Win+R, or isn't connected), `"failed"` (anything else, including an unknown key name or a bad `repeat`). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
+
+Hosts advertise this response in `host.init.capabilities` when the lab
+has a console to press keys in.
+
 ### `host.showInInstructions.response`
 **Optional.** Reply to a prior `mentor.showInInstructions.request`.
 Says whether the lab is now showing the spot.
@@ -952,6 +965,7 @@ verification model.
 | `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
 | `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the student has selected. Reply via `host.environmentTypeCredential.response`. |
 | `mentor.showInInstructions.request` | Optional | Ask the lab to scroll its instructions to a spot (a phrase, an image or an activity) and mark it. Reply via `host.showInInstructions.response`. |
+| `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1260,6 +1274,37 @@ Iframes SHOULD only send this when
 `host.environmentTypeCredential.response` is present in
 `host.init.capabilities`. Standard 10-second client-side timeout
 recommendation applies.
+
+### `mentor.environmentKeys.request`
+**Optional.** Ask the lab to press a key or key combination in the
+console the student has selected: shortcuts such as Win+R, Ctrl+S or
+Alt+Tab, and keys such as Tab, Esc, the arrows or the function keys,
+which `mentor.sendTextToEnvironment` can't express. The keys go to the
+same console text goes to, wherever its focus is.
+
+| Field    | Type     | Notes |
+|----------|----------|-------|
+| `keys`   | string   | Key names joined with `+`, such as `Ctrl+Shift+Esc`. Case doesn't matter, and order doesn't either: hosts press modifiers first. At most one key besides Ctrl, Alt, Shift and Win. |
+| `repeat` | integer? | How many times to press the keys, 1 to 20. Defaults to 1. |
+
+**Key names:** `Ctrl`, `Alt`, `Shift`, `Win`, `Tab`, `Enter`, `Esc`,
+`Space`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`,
+`PageDown`, `Up`, `Down`, `Left`, `Right`, `F1` to `F12`, the letters
+`A` to `Z` and the digits `0` to `9`.
+
+**After the text.** Keys pressed right after text land after that text,
+even where the host paces typing, so "type a file name, then Ctrl+S"
+works as written.
+
+**Terminals.** In an SSH or PowerShell terminal, the host sends the
+characters a terminal reads for the keys: Ctrl with a letter is that
+control character (Ctrl+C interrupts), Alt prefixes Esc, the arrows,
+Home, End, Delete and the function keys are their escape sequences, and
+Shift+Tab is a back-tab. Combinations a terminal has no characters for,
+such as anything with Win or Ctrl with an arrow, answer
+`"not_supported"`.
+
+There's no mouse: point the student at anything only a click can reach.
 
 ### `mentor.showInInstructions.request`
 **Optional.** Ask the lab to bring the student's attention to a spot in

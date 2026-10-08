@@ -36,6 +36,7 @@
     ENVIRONMENT_COMMAND_CANCEL:     'mentor.environmentCommand.cancel',
     TYPE_CREDENTIAL_REQUEST:        'mentor.environmentTypeCredential.request',
     SHOW_IN_INSTRUCTIONS_REQUEST:   'mentor.showInInstructions.request',
+    ENVIRONMENT_KEYS_REQUEST:       'mentor.environmentKeys.request',
     MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
     ERROR:                          'mentor.error',
@@ -55,6 +56,7 @@
     ENVIRONMENT_COMMAND_RESPONSE:   'host.environmentCommand.response',
     TYPE_CREDENTIAL_RESPONSE:       'host.environmentTypeCredential.response',
     SHOW_IN_INSTRUCTIONS_RESPONSE:  'host.showInInstructions.response',
+    ENVIRONMENT_KEYS_RESPONSE:      'host.environmentKeys.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
 
@@ -74,6 +76,7 @@
     OUT.ENVIRONMENT_COMMAND_RESPONSE,
     OUT.TYPE_CREDENTIAL_RESPONSE,
     OUT.SHOW_IN_INSTRUCTIONS_RESPONSE,
+    OUT.ENVIRONMENT_KEYS_RESPONSE,
   ];
 
   const $  = (id) => document.getElementById(id);
@@ -629,6 +632,19 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         // console. The simulator has no credentials, so the toast names
         // the credential instead of showing one.
         post(OUT.TYPE_CREDENTIAL_RESPONSE, typeFakeCredential(msg.payload || {}), msg.id);
+        break;
+      }
+      case IN.ENVIRONMENT_KEYS_REQUEST: {
+        // The simulated console has nothing to press keys in, so the toast
+        // names them instead.
+        const keys = msg.payload?.keys;
+        const repeat = msg.payload?.repeat;
+        if (typeof keys !== 'string' || !keys.trim()) {
+          post(OUT.ENVIRONMENT_KEYS_RESPONSE, { ok: false, reason: 'failed', message: 'Name the keys to press.' }, msg.id);
+          break;
+        }
+        showEnvToast(`[pressed ${keys.trim()}${Number.isInteger(repeat) && repeat > 1 ? ` x${repeat}` : ''}]`);
+        post(OUT.ENVIRONMENT_KEYS_RESPONSE, { ok: true, reason: null, message: null }, msg.id);
         break;
       }
       case IN.SHOW_IN_INSTRUCTIONS_REQUEST:
