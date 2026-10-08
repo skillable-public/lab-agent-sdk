@@ -67,7 +67,8 @@ The sample chat agent runs in **Simulated** mode by default: canned
 replies, no credentials needed. Switch to **Claude** mode for a real
 LLM that can act on the lab environment through the host's
 capabilities (running commands in the background, typing into the
-console, taking screenshots, changing instructions pages).
+console, typing the lab's credentials, taking screenshots, changing
+instructions pages).
 
 Keep credentials in user-secrets, never in `appsettings.json`. From
 `src`:

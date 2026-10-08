@@ -890,11 +890,13 @@ the credential itself.
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the host typed the credential (and pressed Enter, if asked). It says nothing about whether the prompt accepted it; take a screenshot or check the environment to find out. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the host or this environment can't type credentials), `"not_available"` (nothing is selected to type into, or there is no VM or endpoint with the requested alias), `"failed"` (anything else, including a credential the host won't type for that VM or endpoint, or one the lab doesn't define). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the host or this environment can't type credentials), `"not_available"` (nothing is selected to type into, the selected target can't be typed into, such as a web endpoint, or there is no VM or endpoint with the requested alias), `"failed"` (anything else, including a credential the host won't type for that VM or endpoint, or one the lab doesn't define). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. Never contains the credential. |
 
-Hosts advertise this response in `host.init.capabilities` only when they
-can type credentials into the lab environment.
+Hosts advertise this response in `host.init.capabilities` only when at
+least one of the lab's credentials can be typed: the host can type into
+the lab environment and some VM or endpoint has a credential it is
+willing to type.
 
 Also validate the response's envelope `id` against your set of
 outstanding requests; ignore responses with an unknown or already-
@@ -1180,15 +1182,25 @@ or its model.
 | Field        | Type                         | Notes |
 |--------------|------------------------------|-------|
 | `credential` | `"username"` \| `"password"` | Which credential to type. |
-| `machine`    | string?                      | Alias of the VM whose credentials to type (`LabContext.machines[].alias`). Defaults to the VM the student has selected. |
-| `endpoint`   | string?                      | Alias of an endpoint on that VM, to type that endpoint's credentials. When omitted, the host types the VM's own credentials. |
-| `pressEnter` | boolean?                     | Press Enter after typing. Defaults to `false`. |
+| `machine`    | string?                      | Alias of the VM whose credentials to type (`LabContext.machines[].alias`). When only `endpoint` is named, defaults to the VM the student has selected (the selected endpoint's VM when an endpoint is selected). See below for when neither is named. |
+| `endpoint`   | string?                      | Alias of an endpoint on that VM, to type that endpoint's credentials. When `machine` is named and `endpoint` is not, the host types the VM's own credentials. See below for when neither is named. |
+| `pressEnter` | boolean?                     | Press the console's own Enter key after typing. Defaults to `false`. |
+
+**Whose credential.** With neither `machine` nor `endpoint` named, the
+host types the credentials of what the student has selected: the
+selected endpoint's if an endpoint is selected, otherwise the selected
+VM's. Naming either one switches to explicit targeting: `machine`
+defaults to the selected VM (the selected endpoint's VM when an
+endpoint is selected), and the host types an endpoint's credentials
+only when `endpoint` is named, otherwise the VM's own.
 
 `machine` and `endpoint` choose *whose* credential is typed, not where
 it goes: the host always types into the console the student has
 selected, like `mentor.sendTextToEnvironment`. Typing another VM's
 password into the selected console is legitimate, for example to answer
-an `ssh` prompt for that VM.
+an `ssh` prompt for that VM. When the selected target can't be typed
+into (for example a web endpoint), the host replies `ok: false` with
+reason `"not_available"`.
 
 The host decides which credentials it is willing to type and replies
 `ok: false` with reason `"failed"` for any it won't. A host may refuse

@@ -638,15 +638,21 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     if (credential !== 'username' && credential !== 'password') {
       return { ok: false, reason: 'failed', message: `Unknown credential '${credential}'.` };
     }
-    const machineAlias = machine || currentContext(false).environment.machine;
+    // Naming neither types the selected endpoint's credentials, or the
+    // selected VM's when no endpoint is selected. Naming either targets
+    // explicitly: machine defaults to the selected VM, and an endpoint's
+    // credentials are typed only when it is named.
+    const selected = currentContext(false).environment;
+    const machineAlias = machine || selected.machine;
+    const endpointAlias = machine || endpoint ? endpoint : selected.endpoint;
     const target = LAB_MACHINES.find((m) => m.alias === machineAlias);
     if (!target) {
       return { ok: false, reason: 'not_available', message: `There is no virtual machine with the alias '${machineAlias}'.` };
     }
-    if (endpoint && !target.endpoints.some((e) => e.alias === endpoint)) {
-      return { ok: false, reason: 'not_available', message: `There is no endpoint with the alias '${endpoint}' on '${machineAlias}'.` };
+    if (endpointAlias && !target.endpoints.some((e) => e.alias === endpointAlias)) {
+      return { ok: false, reason: 'not_available', message: `There is no endpoint with the alias '${endpointAlias}' on '${machineAlias}'.` };
     }
-    const owner = endpoint ? `${machineAlias}/${endpoint}` : machineAlias;
+    const owner = endpointAlias ? `${machineAlias}/${endpointAlias}` : machineAlias;
     showEnvToast(`[typed ${credential} for ${owner}${pressEnter ? ' + Enter' : ''}]`);
     return { ok: true, reason: null, message: null };
   }
