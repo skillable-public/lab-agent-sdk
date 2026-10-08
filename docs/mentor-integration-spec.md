@@ -636,6 +636,7 @@ Your iframe, after resolving the session:
 | `host.environmentCommand.response`   | Optional  | Reply to `mentor.environmentCommand.request` with the command's output and exit code, or a failure reason. |
 | `host.environmentTypeCredential.response` | Optional | Reply to `mentor.environmentTypeCredential.request`: whether the credential was typed. Never carries the credential. |
 | `host.showInInstructions.response`   | Optional  | Reply to `mentor.showInInstructions.request`: whether the lab is showing the spot. |
+| `host.checkTask.response`            | Optional  | Reply to `mentor.checkTask.request`: whether the task is now in the state asked for. |
 | `host.environmentKeys.response`      | Optional  | Reply to `mentor.environmentKeys.request`: whether the keys were pressed. |
 | `host.viewAs.response`               | Optional  | Reply to `mentor.viewAs.request`: whether the view changed. |
 
@@ -953,6 +954,18 @@ Nothing changes on screen when `ok` is `false`. Hosts that can point
 into their instructions advertise this response in
 `host.init.capabilities`.
 
+### `host.checkTask.response`
+**Optional.** Reply to a prior `mentor.checkTask.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the task is now checked (or unchecked, as asked), including when it already was. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page, or no task matches), `"ambiguous"` (the quote matches more than one task), `"not_visible"` (the task is in a part of the page the student hasn't opened), `"not_supported"` (the lab has no instructions), `"failed"` (anything else, including a lab that requires tasks in order refusing a task while earlier ones are unchecked). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+
+Hosts advertise this response in `host.init.capabilities` only when
+the lab's instructions have tasks.
+
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
 expires. The host sends this periodically (typically ~60 seconds
@@ -988,6 +1001,7 @@ verification model.
 | `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
 | `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the student has selected. Reply via `host.environmentTypeCredential.response`. |
 | `mentor.showInInstructions.request` | Optional | Ask the lab to scroll its instructions to a spot (a phrase, an image or an activity) and mark it. Reply via `host.showInInstructions.response`. |
+| `mentor.checkTask.request` | Optional | Ask the lab to check off (or uncheck) a task in its instructions. Reply via `host.checkTask.response`. |
 | `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
@@ -1391,6 +1405,24 @@ the instructions share one tab strip, as on the Skillable lab platform,
 the mentor is out of sight while the instructions show. Keep the reply
 that goes with the pointer short and put the essential words in `note`;
 the caption's link brings the student back.
+
+### `mentor.checkTask.request`
+**Optional.** Ask the lab to check off a task in its instructions, or
+uncheck it, the same as the student ticking its box. On the Skillable
+lab platform this records the student's progress, and the lab's task
+rules apply, such as tasks having to be completed in order.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `task`    | string   | A phrase copied from the task's text, matched the way `mentor.showInInstructions.request` matches `text`. Quote enough to tell the task from the others on the page. |
+| `page`    | integer? | **Zero-based** page index. Defaults to the page the student is on. |
+| `checked` | boolean? | `false` to uncheck the task. Defaults to `true`. |
+
+Check a task only once you have confirmed it is done, for example from a
+screenshot or a background command, whoever did the work. Hosts refuse
+rather than guess: a quote matching several tasks is `"ambiguous"`, and
+in a lab that requires tasks in order, a task with unchecked ones before
+it is refused, so check tasks in order.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful
