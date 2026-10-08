@@ -1216,6 +1216,14 @@ host MUST NOT put it in `message`. A mentor that needs to know whether
 the credential worked looks at the result (a screenshot, or a command
 that checks), not at the value.
 
+**Type a password only at a prompt that hides it.** The host types the
+value as if the student had, so whatever the console echoes stays on
+screen and shows in any later screenshot. Typed at a password prompt
+(`sudo`, `ssh`, a sign-in screen), nothing is echoed; typed into a
+shell, an editor or a visible text field, the password is shown to the
+student and to any screenshot the mentor takes. Wait for the prompt
+before asking for the password.
+
 **Using it.**
 
 - Use it to answer a `sudo` password prompt or a login prompt in the
