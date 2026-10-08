@@ -634,6 +634,7 @@ Your iframe, after resolving the session:
 | `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
 | `host.labInstructions.response`      | Optional  | Reply to `mentor.labInstructions.request` with the full set of instruction pages for the current lab. |
 | `host.environmentCommand.response`   | Optional  | Reply to `mentor.environmentCommand.request` with the command's output and exit code, or a failure reason. |
+| `host.environmentTypeCredential.response` | Optional | Reply to `mentor.environmentTypeCredential.request`: whether the credential was typed. Never carries the credential. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -881,6 +882,24 @@ Also validate the response's envelope `id` against your set of
 outstanding requests; ignore responses with an unknown or already-
 fulfilled `id`.
 
+### `host.environmentTypeCredential.response`
+**Optional.** Reply to a prior `mentor.environmentTypeCredential.request`.
+Says whether the host typed the credential. The payload never carries
+the credential itself.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the host typed the credential (and pressed Enter, if asked). It says nothing about whether the prompt accepted it; take a screenshot or check the environment to find out. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the host or this environment can't type credentials), `"not_available"` (nothing is selected to type into, or there is no VM or endpoint with the requested alias), `"failed"` (anything else, including a credential the host won't type for that VM or endpoint, or one the lab doesn't define). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. Never contains the credential. |
+
+Hosts advertise this response in `host.init.capabilities` only when they
+can type credentials into the lab environment.
+
+Also validate the response's envelope `id` against your set of
+outstanding requests; ignore responses with an unknown or already-
+fulfilled `id`.
+
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
 expires. The host sends this periodically (typically ~60 seconds
@@ -914,6 +933,7 @@ verification model.
 | `mentor.labInstructions.request` | Optional | Ask the lab for the full set of instruction pages. Reply via `host.labInstructions.response`. |
 | `mentor.environmentCommand.request` | Optional | Ask the lab to run a shell command in the lab environment, out of the student's view. Reply via `host.environmentCommand.response`. |
 | `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
+| `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the student has selected. Reply via `host.environmentTypeCredential.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1147,6 +1167,63 @@ A cancelled command may have done part of its work before it was
 ended. Gated by the same capability as the request: iframes SHOULD only
 send it when `host.environmentCommand.response` is present in
 `host.init.capabilities`.
+
+### `mentor.environmentTypeCredential.request`
+**Optional.** Ask the lab to type one of the lab's credentials, a user
+name or a password, into the console the student currently has
+selected. The host types it the same way it types
+`mentor.sendTextToEnvironment` text, then presses Enter if asked. The
+iframe names which credential it wants; the host looks up the value and
+types it, so the value never reaches the iframe, the mentor's backend
+or its model.
+
+| Field        | Type                         | Notes |
+|--------------|------------------------------|-------|
+| `credential` | `"username"` \| `"password"` | Which credential to type. |
+| `machine`    | string?                      | Alias of the VM whose credentials to type (`LabContext.machines[].alias`). Defaults to the VM the student has selected. |
+| `endpoint`   | string?                      | Alias of an endpoint on that VM, to type that endpoint's credentials. When omitted, the host types the VM's own credentials. |
+| `pressEnter` | boolean?                     | Press Enter after typing. Defaults to `false`. |
+
+`machine` and `endpoint` choose *whose* credential is typed, not where
+it goes: the host always types into the console the student has
+selected, like `mentor.sendTextToEnvironment`. Typing another VM's
+password into the selected console is legitimate, for example to answer
+an `ssh` prompt for that VM.
+
+The host decides which credentials it is willing to type and replies
+`ok: false` with reason `"failed"` for any it won't. A host may refuse
+the credentials of VMs or endpoints hidden from the student. The
+Skillable lab platform types a VM's credentials only when the VM is
+visible to the student, an endpoint's credentials only when the endpoint
+is visible to the student or `mentorAccessible`, and never anything
+belonging to a VM that is completely hidden from the student.
+
+**The value stays in the host.** Neither the request nor
+`host.environmentTypeCredential.response` carries the credential, and a
+host MUST NOT put it in `message`. A mentor that needs to know whether
+the credential worked looks at the result (a screenshot, or a command
+that checks), not at the value.
+
+**Using it.**
+
+- Use it to answer a `sudo` password prompt or a login prompt in the
+  student's console, or to sign in on the student's behalf.
+- Type the command that prompts first (with
+  `mentor.sendTextToEnvironment`), wait for the prompt to appear, then
+  send this request, usually with `pressEnter: true`. Text typed before
+  the prompt is ready can be swallowed or echoed to the screen.
+- Never ask the student for a credential the mentor can type this way.
+  Asking puts a secret into the chat transcript, which this message
+  exists to avoid.
+
+For work that doesn't need the student to watch,
+`mentor.environmentCommand.request` with `runAsAdministrator` is
+usually simpler: the host supplies elevation credentials itself.
+
+Iframes SHOULD only send this when
+`host.environmentTypeCredential.response` is present in
+`host.init.capabilities`. Standard 10-second client-side timeout
+recommendation applies.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful

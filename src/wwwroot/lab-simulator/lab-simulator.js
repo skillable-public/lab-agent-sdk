@@ -34,6 +34,7 @@
     LAB_INSTRUCTIONS_REQUEST:       'mentor.labInstructions.request',
     ENVIRONMENT_COMMAND_REQUEST:    'mentor.environmentCommand.request',
     ENVIRONMENT_COMMAND_CANCEL:     'mentor.environmentCommand.cancel',
+    TYPE_CREDENTIAL_REQUEST:        'mentor.environmentTypeCredential.request',
     MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
     ERROR:                          'mentor.error',
@@ -51,6 +52,7 @@
     CONNECTION_QUALITY_RESPONSE:    'host.environmentConnectionQuality.response',
     LAB_INSTRUCTIONS_RESPONSE:      'host.labInstructions.response',
     ENVIRONMENT_COMMAND_RESPONSE:   'host.environmentCommand.response',
+    TYPE_CREDENTIAL_RESPONSE:       'host.environmentTypeCredential.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
 
@@ -68,6 +70,7 @@
     OUT.CONNECTION_QUALITY_RESPONSE,
     OUT.LAB_INSTRUCTIONS_RESPONSE,
     OUT.ENVIRONMENT_COMMAND_RESPONSE,
+    OUT.TYPE_CREDENTIAL_RESPONSE,
   ];
 
   const $  = (id) => document.getElementById(id);
@@ -618,11 +621,35 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         }, requestId);
         break;
       }
+      case IN.TYPE_CREDENTIAL_REQUEST: {
+        // A real host looks the value up and types it into the selected
+        // console. The simulator has no credentials, so the toast names
+        // the credential instead of showing one.
+        post(OUT.TYPE_CREDENTIAL_RESPONSE, typeFakeCredential(msg.payload || {}), msg.id);
+        break;
+      }
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
       case IN.SEND_TEXT:          showEnvToast(msg.payload?.text || ''); break;
       case IN.MENTOR_RESPONSE:    showMentorBadge(); break;
     }
   });
+
+  function typeFakeCredential({ credential, machine, endpoint, pressEnter }) {
+    if (credential !== 'username' && credential !== 'password') {
+      return { ok: false, reason: 'failed', message: `Unknown credential '${credential}'.` };
+    }
+    const machineAlias = machine || currentContext(false).environment.machine;
+    const target = LAB_MACHINES.find((m) => m.alias === machineAlias);
+    if (!target) {
+      return { ok: false, reason: 'not_available', message: `There is no virtual machine with the alias '${machineAlias}'.` };
+    }
+    if (endpoint && !target.endpoints.some((e) => e.alias === endpoint)) {
+      return { ok: false, reason: 'not_available', message: `There is no endpoint with the alias '${endpoint}' on '${machineAlias}'.` };
+    }
+    const owner = endpoint ? `${machineAlias}/${endpoint}` : machineAlias;
+    showEnvToast(`[typed ${credential} for ${owner}${pressEnter ? ' + Enter' : ''}]`);
+    return { ok: true, reason: null, message: null };
+  }
 
   function produceFakeCommandResult(command, machine) {
     if (!command.trim()) {
