@@ -1238,7 +1238,10 @@ the credentials of VMs or endpoints hidden from the student. The
 Skillable lab platform types a VM's credentials only when the VM is
 visible to the student, an endpoint's credentials only when the endpoint
 is visible to the student or `mentorAccessible`, and never anything
-belonging to a VM that is completely hidden from the student.
+belonging to a VM that is completely hidden from the student. For a
+user who can edit the lab, such as an author building it, it types
+what that user's console shows: every VM's credentials, and those of
+endpoints visible to admins.
 
 **The value stays in the host.** Neither the request nor
 `host.environmentTypeCredential.response` carries the credential, and a
@@ -1411,7 +1414,7 @@ within a page are a lab-authoring concept and are not modeled here.
 | `pageTitle`        | string?                      | The page's heading text, if it starts with one. When absent, display as `Page {currentPageIndex + 1}`. |
 | `pageInstructions` | string?                      | Current page body as **markdown**. Use this to ground mentor responses. |
 | `environment`      | `{ [key: string]: string }`? | Facts about the environment the student has selected. Well-known keys: `name` (display name), `os`, and for virtual machine labs `machine` (the selected VM's alias) and `endpoint` (the selected endpoint's alias, when the student is on an endpoint rather than the VM's own console). Hosts may add free-form keys (shell, cwd, last command, etc.). |
-| `machines`         | LabMachine[]?                | The lab's virtual machines, including ones the student can't see, and each one's endpoints. Sent in `host.init` only, since it is fixed for the lab attempt; a `host.context.update` without it means unchanged. Absent outside virtual machine labs. See below. |
+| `machines`         | LabMachine[]?                | The lab's virtual machines the user can see, and each one's endpoints. For a student, a VM is listed when it or one of its endpoints is visible to them; a VM completely hidden from students is left out, so the mentor can't reveal it. For a user who can edit the lab, every VM is listed, as their console shows them. Sent in `host.init` only, since it is fixed for the lab attempt; a `host.context.update` without it means unchanged. Absent outside virtual machine labs. See below. |
 
 All fields are optional. Build your mentor to degrade gracefully when
 any one is missing, and to re-ground on every update.
@@ -1435,7 +1438,7 @@ Each `LabEndpoint`:
 | `description`      | string? | The author's description, if any. |
 | `protocol`         | string? | `ssh`, `powershell`, `rdp`, `vnc`, `telnet`, `http` or `https`. |
 | `studentVisible`   | boolean | Whether the student can see this endpoint. |
-| `mentorAccessible` | boolean | Whether `mentor.environmentCommand.request` can run commands through it. |
+| `mentorAccessible` | boolean | Whether `mentor.environmentCommand.request` can run commands through it for this user. On the Skillable lab platform, an endpoint the author opened to the mentor is usable on a VM the student knows about, and, for a user who can edit the lab, also through an endpoint visible to admins on a VM hidden from students. |
 
 The catalog carries no addresses or credentials. Hosts may add fields;
 ignore ones you don't recognize.
