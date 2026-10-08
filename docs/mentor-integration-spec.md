@@ -1184,7 +1184,7 @@ or its model.
 | `credential` | `"username"` \| `"password"` | Which credential to type. |
 | `machine`    | string?                      | Alias of the VM whose credentials to type (`LabContext.machines[].alias`). When only `endpoint` is named, defaults to the VM the student has selected (the selected endpoint's VM when an endpoint is selected). See below for when neither is named. |
 | `endpoint`   | string?                      | Alias of an endpoint on that VM, to type that endpoint's credentials. When `machine` is named and `endpoint` is not, the host types the VM's own credentials. See below for when neither is named. |
-| `pressEnter` | boolean?                     | Press the console's own Enter key after typing. Defaults to `false`. |
+| `pressEnter` | boolean?                     | Press the console's own Enter key after typing. Defaults to `false`. Some consoles end every typed line with Enter anyway (for example a Telnet console), and hosts don't add a second one there. |
 
 **Whose credential.** With neither `machine` nor `endpoint` named, the
 host types the credentials of what the student has selected: the
