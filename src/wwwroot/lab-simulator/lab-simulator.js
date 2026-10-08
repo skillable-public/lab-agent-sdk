@@ -543,7 +543,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           userRole: 'student',
           userOrganizationId: 'org-acme',
           userOrganizationName: 'Acme',
-          theme: currentIframeTheme(),
+          ...currentThemePayload(),
           locale: 'en',
           labContext: currentContext(true),
           capabilities: HOST_CAPABILITIES,
@@ -1038,19 +1038,20 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   });
 
   // --- Settings: Color Mode — flips theme + posts host.theme.change --------
-  function currentIframeTheme() {
-    // The contract only carries "light" and "dark". If the host's internal
-    // mode is something else (e.g. "high-contrast"), fall back to "light"
-    // per spec — never "dark".
-    return document.documentElement.getAttribute('data-theme') === 'dark'
-      ? 'dark'
-      : 'light';
+  // The color mode, with this page's primary and text colors for it, as the
+  // Skillable lab sends them.
+  function currentThemePayload() {
+    const style = getComputedStyle(document.documentElement);
+    return {
+      theme: document.documentElement.getAttribute('data-theme') || 'light',
+      primaryColor: style.getPropertyValue('--primary-main').trim() || null,
+      textColor: style.getPropertyValue('--text-primary').trim() || null,
+    };
   }
 
   function applyColorMode(mode) {
     document.documentElement.setAttribute('data-theme', mode);
-    document.documentElement.classList.toggle('is-high-contrast', mode === 'high-contrast');
-    if (mentorLoaded) post(OUT.THEME_CHANGE, { theme: currentIframeTheme() });
+    if (mentorLoaded) post(OUT.THEME_CHANGE, currentThemePayload());
   }
   $colorMode.addEventListener('change', (e) => applyColorMode(e.target.value));
   // Initialize dropdown from whatever the page booted with

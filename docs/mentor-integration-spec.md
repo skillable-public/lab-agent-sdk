@@ -112,7 +112,7 @@ the URL and how you behave once loaded.
 
 | Param          | Type                 | Meaning |
 |----------------|----------------------|---------|
-| `theme`        | `"light"` \| `"dark"`| Initial theme. Light is the default if absent. |
+| `theme`        | `"light"` \| `"dark"` \| `"highcontrast"` | Initial color mode. Light is the default if absent. Treat any other value as `"light"`. |
 | `locale`       | string               | BCP-47 locale tag, e.g. `en-US`. |
 
 URL parameters are limited to values the iframe wants to apply *before*
@@ -653,7 +653,9 @@ iframe receives nothing, carry on with defaults.
 | `userRole`       | string?                        | The user's role *in this lab session*, not the totality of their account permissions. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible — receivers MUST tolerate unknown values). A lab author taking the lab to verify it should show as `"student"` during that run; the same person editing it should show as `"labAuthor"`. Identity hint, not a credential. When `authToken` is present, the JWT's `role` claim is the authoritative form. |
 | `userOrganizationId`   | string?                  | Opaque id for the user's organization. Identity hint, not a credential. When `authToken` is present, the JWT's `org_id` claim is the authoritative form. |
 | `userOrganizationName` | string?                  | Display name for the user's organization. Hosts MAY pass a friendly display name vs. the legal entity name (e.g., "Acme" rather than "Acme Holdings, Inc."), or omit this field entirely and pass only `userOrganizationId` for privacy-sensitive deployments. Iframes should be designed to work with id-only. |
-| `theme`          | `"light"` \| `"dark"`          | Apply immediately. |
+| `theme`          | `"light"` \| `"dark"` \| `"highcontrast"` | The lab's color mode. Apply immediately. Treat any other value as `"light"`. |
+| `primaryColor`   | string?                        | The lab theme's primary color for that mode, as a CSS color. The Skillable lab sends a customer's own theme colors, so using it makes the mentor look like part of their lab. Absent when the host has none. |
+| `textColor`      | string?                        | The lab theme's text color for that mode, as a CSS color. Absent when the host has none. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
 | `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
@@ -685,9 +687,11 @@ student having typed anything. Typical trigger: the student clicked an
 ### `host.theme.change`
 **Optional.** Switch theme at runtime.
 
-| Field    | Type                   |
-|----------|------------------------|
-| `theme`  | `"light"` \| `"dark"`  |
+| Field          | Type                   | Notes |
+|----------------|------------------------|-------|
+| `theme`        | `"light"` \| `"dark"` \| `"highcontrast"` | Treat any other value as `"light"`. |
+| `primaryColor` | string?                | The theme's primary color for the new mode, as in `host.init`. |
+| `textColor`    | string?                | The theme's text color for the new mode, as in `host.init`. |
 
 ### `host.locale.change`
 **Optional.** Switch locale at runtime.
@@ -1586,7 +1590,7 @@ it process any `host.*` message (including `host.init.authToken` and
 **Optional.** Everything in this section is guidance, not a requirement.
 Your mentor is free to ship whatever visual design you want, and the
 `host.theme.change` handler itself is optional — if your UI doesn't
-adapt to light/dark modes, just ignore theme messages.
+adapt to the lab's color modes, just ignore theme messages.
 
 These tokens exist only as a convenience: if you'd like the iframe to
 feel continuous with the surrounding Skillable lab chrome (usually the
@@ -1605,8 +1609,9 @@ variables rather than literal colors:
 
 ```css
 :root,
-:root[data-theme="light"] { /* light-mode tokens */ }
-:root[data-theme="dark"]  { /* dark-mode tokens */ }
+:root[data-theme="light"]        { /* light-mode tokens */ }
+:root[data-theme="dark"]         { /* dark-mode tokens */ }
+:root[data-theme="highcontrast"] { /* high-contrast tokens */ }
 ```
 
 On `host.init.theme` or `host.theme.change`, set the attribute:
@@ -1617,6 +1622,21 @@ document.documentElement.setAttribute('data-theme', payload.theme);
 
 Nothing else needs to happen — every `var(--token)` reference in your
 CSS re-resolves.
+
+To match the customer's lab rather than Skillable's defaults, lay the
+theme's colors over your tokens when they're sent, and clear them when
+they aren't:
+
+```js
+const root = document.documentElement;
+for (const [token, value] of [['--primary-main', payload.primaryColor], ['--text-primary', payload.textColor]]) {
+  if (value) root.style.setProperty(token, value); else root.style.removeProperty(token);
+}
+```
+
+Pick the text color for anything drawn on `primaryColor` from its
+lightness, since a customer's primary color can be light or dark. The
+sample chat's `applyTheme` does both.
 
 ### 13.2 Core palette
 
