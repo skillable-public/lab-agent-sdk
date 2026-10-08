@@ -635,6 +635,7 @@ Your iframe, after resolving the session:
 | `host.labInstructions.response`      | Optional  | Reply to `mentor.labInstructions.request` with the full set of instruction pages for the current lab. |
 | `host.environmentCommand.response`   | Optional  | Reply to `mentor.environmentCommand.request` with the command's output and exit code, or a failure reason. |
 | `host.environmentTypeCredential.response` | Optional | Reply to `mentor.environmentTypeCredential.request`: whether the credential was typed. Never carries the credential. |
+| `host.showInInstructions.response`   | Optional  | Reply to `mentor.showInInstructions.request`: whether the lab is showing the spot. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -902,6 +903,20 @@ Also validate the response's envelope `id` against your set of
 outstanding requests; ignore responses with an unknown or already-
 fulfilled `id`.
 
+### `host.showInInstructions.response`
+**Optional.** Reply to a prior `mentor.showInInstructions.request`.
+Says whether the lab is now showing the spot.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the lab switched to the page, scrolled the spot into view and marked it. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page or target, or `occurrence` is past the last match), `"ambiguous"` (the target matches more than one place and no `occurrence` was given), `"not_visible"` (the target is in a part of the page the student hasn't opened, such as a collapsed hint), `"not_supported"` (the host can't point into its instructions), `"failed"` (anything else, including a malformed request). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+
+Nothing changes on screen when `ok` is `false`. Hosts that can point
+into their instructions advertise this response in
+`host.init.capabilities`.
+
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
 expires. The host sends this periodically (typically ~60 seconds
@@ -936,6 +951,7 @@ verification model.
 | `mentor.environmentCommand.request` | Optional | Ask the lab to run a shell command in the lab environment, out of the student's view. Reply via `host.environmentCommand.response`. |
 | `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
 | `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the student has selected. Reply via `host.environmentTypeCredential.response`. |
+| `mentor.showInInstructions.request` | Optional | Ask the lab to scroll its instructions to a spot (a phrase, an image or an activity) and mark it. Reply via `host.showInInstructions.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1244,6 +1260,41 @@ Iframes SHOULD only send this when
 `host.environmentTypeCredential.response` is present in
 `host.init.capabilities`. Standard 10-second client-side timeout
 recommendation applies.
+
+### `mentor.showInInstructions.request`
+**Optional.** Ask the lab to bring the student's attention to a spot in
+the instructions. The host switches to the Instructions view and the
+page, scrolls the spot into view, marks it, and puts a caption beside it
+with a way back to the mentor. Use it to show where something is,
+especially below the visible part of a long page. Like
+`mentor.gotoInstructionsPage`, it relies on no DOM selectors: name the
+spot the way the student sees it.
+
+| Field        | Type     | Notes |
+|--------------|----------|-------|
+| `text`       | string?  | A short phrase copied from the page as the student reads it, about 3 to 15 words. Hosts match it ignoring case, whitespace, and the difference between straight and curly quotes or hyphens and dashes, so it may run across bold text, links and inline code. Leave out markdown syntax. |
+| `image`      | string?  | An image on the page, by its alt text or its file name. |
+| `activity`   | string?  | An activity (a question or task) on the page, by its alias. |
+| `page`       | integer? | **Zero-based** page index (same frame of reference as `LabContext.currentPageIndex`). Defaults to the page the student is on. |
+| `occurrence` | integer? | Which match to show, from 1, when the target appears more than once. Counts only the matches the student can see. |
+| `note`       | string?  | A short caption shown beside the spot, such as why it matters. Plain text: hosts show it as text, never as markup, and may cut it short (the Skillable lab platform keeps 200 characters). |
+
+Name exactly one of `text`, `image` or `activity`.
+
+**Ambiguity is reported, not guessed.** When the target matches more
+than one place and `occurrence` is absent, the host changes nothing and
+replies `"ambiguous"`. Quote more of the text, or pass `occurrence`.
+
+**The student stays in control.** The mark stays until the student
+clicks in the instructions, changes page, follows the caption's link
+back to the mentor, or closes the caption. A new request replaces the
+previous mark. Hosts honor the student's reduced-motion preference.
+
+**The instructions may take the mentor's place.** Where the mentor and
+the instructions share one tab strip, as on the Skillable lab platform,
+the mentor is out of sight while the instructions show. Keep the reply
+that goes with the pointer short and put the essential words in `note`;
+the caption's link brings the student back.
 
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful

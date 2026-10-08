@@ -35,6 +35,7 @@
     ENVIRONMENT_COMMAND_REQUEST:    'mentor.environmentCommand.request',
     ENVIRONMENT_COMMAND_CANCEL:     'mentor.environmentCommand.cancel',
     TYPE_CREDENTIAL_REQUEST:        'mentor.environmentTypeCredential.request',
+    SHOW_IN_INSTRUCTIONS_REQUEST:   'mentor.showInInstructions.request',
     MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
     ERROR:                          'mentor.error',
@@ -53,6 +54,7 @@
     LAB_INSTRUCTIONS_RESPONSE:      'host.labInstructions.response',
     ENVIRONMENT_COMMAND_RESPONSE:   'host.environmentCommand.response',
     TYPE_CREDENTIAL_RESPONSE:       'host.environmentTypeCredential.response',
+    SHOW_IN_INSTRUCTIONS_RESPONSE:  'host.showInInstructions.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
 
@@ -71,6 +73,7 @@
     OUT.LAB_INSTRUCTIONS_RESPONSE,
     OUT.ENVIRONMENT_COMMAND_RESPONSE,
     OUT.TYPE_CREDENTIAL_RESPONSE,
+    OUT.SHOW_IN_INSTRUCTIONS_RESPONSE,
   ];
 
   const $  = (id) => document.getElementById(id);
@@ -628,11 +631,58 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         post(OUT.TYPE_CREDENTIAL_RESPONSE, typeFakeCredential(msg.payload || {}), msg.id);
         break;
       }
+      case IN.SHOW_IN_INSTRUCTIONS_REQUEST:
+        post(OUT.SHOW_IN_INSTRUCTIONS_RESPONSE, showFakePointer(msg.payload || {}), msg.id);
+        break;
       case IN.GOTO_PAGE:          gotoInstructionsPage(msg.payload?.index); break;
       case IN.SEND_TEXT:          showEnvToast(msg.payload?.text || ''); break;
       case IN.MENTOR_RESPONSE:    showMentorBadge(); break;
     }
   });
+
+  // Outlines the first block on the page that holds the text, or the image.
+  // A real host marks the exact words, scrolls them a third of the way down
+  // the pane and adds a caption that links back to the mentor; the simulator
+  // outlines the block and shows the note in a toast. Its pages have no
+  // activities.
+  function showFakePointer({ text, image, activity, page, note }) {
+    const named = [text, image, activity].filter((v) => typeof v === 'string' && v.trim());
+    if (named.length !== 1) {
+      return { ok: false, reason: 'failed', message: 'Name exactly one of text, image or activity.' };
+    }
+    const index = Number.isInteger(page) ? page : currentPageIndex;
+    if (index < 0 || index >= lab.pages.length) {
+      return { ok: false, reason: 'not_found', message: `The instructions have no page ${index}.` };
+    }
+    if (activity) {
+      return { ok: false, reason: 'not_found', message: 'The simulated lab has no activities.' };
+    }
+    const previous = currentPageIndex;
+    if (index !== previous) gotoInstructionsPage(index);
+    const fold = (s) => s.replace(/\s+/g, '').toLowerCase();
+    let target;
+    if (text) {
+      const wanted = fold(text);
+      target = Array.from($labPage.querySelectorAll('p, li, h1, h2, h3, h4, pre, td, blockquote'))
+        .find((el) => fold(el.textContent).includes(wanted));
+    } else {
+      const wanted = image.trim().toLowerCase();
+      target = Array.from($labPage.querySelectorAll('img'))
+        .find((img) => (img.alt || '').toLowerCase() === wanted
+          || (img.getAttribute('src') || '').split('/').pop().toLowerCase() === wanted);
+    }
+    if (!target) {
+      if (index !== previous) gotoInstructionsPage(previous);
+      return { ok: false, reason: 'not_found', message: `Page ${index} has no ${text ? 'text' : 'image'} matching that.` };
+    }
+    activateTab('instructions');
+    $labPage.querySelectorAll('.sim-pointer').forEach((el) => el.classList.remove('sim-pointer'));
+    target.classList.add('sim-pointer');
+    $labPage.addEventListener('click', () => target.classList.remove('sim-pointer'), { once: true });
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (typeof note === 'string' && note.trim()) showEnvToast(`[pointed at the instructions] ${note.trim()}`);
+    return { ok: true, reason: null, message: null };
+  }
 
   function typeFakeCredential({ credential, machine, endpoint, pressEnter }) {
     if (credential !== 'username' && credential !== 'password') {
