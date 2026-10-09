@@ -1509,7 +1509,7 @@ Each `LabMachine`:
 | `name`           | string?          | Display name, as the student sees it. |
 | `os`             | string?          | Operating system, as the author described it. |
 | `studentVisible` | boolean          | Whether the student can see this VM. Mentors may act on hidden VMs; say so when you do. |
-| `endpoints`      | LabEndpoint[]    | Ways into the VM (SSH, PowerShell, RDP, HTTP, etc.). |
+| `endpoints`      | LabEndpoint[]    | Ways into the VM (SSH, PowerShell, RDP, HTTP, etc.). A student's catalog, or an author's in student view, lists only the endpoints the student can see or the mentor can use. |
 
 Each `LabEndpoint`:
 
