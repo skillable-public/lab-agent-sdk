@@ -38,6 +38,8 @@
     SHOW_IN_INSTRUCTIONS_REQUEST:   'mentor.showInInstructions.request',
     VIEW_AS_REQUEST:                'mentor.viewAs.request',
     ENVIRONMENT_KEYS_REQUEST:       'mentor.environmentKeys.request',
+    ENVIRONMENT_MOUSE_REQUEST:      'mentor.environmentMouse.request',
+    SHOW_IN_ENVIRONMENT_REQUEST:    'mentor.showInEnvironment.request',
     MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
     ERROR:                          'mentor.error',
@@ -59,6 +61,8 @@
     SHOW_IN_INSTRUCTIONS_RESPONSE:  'host.showInInstructions.response',
     VIEW_AS_RESPONSE:               'host.viewAs.response',
     ENVIRONMENT_KEYS_RESPONSE:      'host.environmentKeys.response',
+    ENVIRONMENT_MOUSE_RESPONSE:     'host.environmentMouse.response',
+    SHOW_IN_ENVIRONMENT_RESPONSE:   'host.showInEnvironment.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
 
@@ -79,6 +83,8 @@
     OUT.TYPE_CREDENTIAL_RESPONSE,
     OUT.SHOW_IN_INSTRUCTIONS_RESPONSE,
     OUT.ENVIRONMENT_KEYS_RESPONSE,
+    OUT.ENVIRONMENT_MOUSE_RESPONSE,
+    OUT.SHOW_IN_ENVIRONMENT_RESPONSE,
   ];
 
   const $  = (id) => document.getElementById(id);
@@ -570,9 +576,17 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         // A real lab host would call its capture primitive against the
         // active environment target.
         const responsePayload = produceFakeScreenshot('environment');
+        // Spots the mentor picks on this screenshot are read against its size.
+        if (responsePayload.ok) screenshotFrame = { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT };
         post(OUT.SCREENSHOT_RESPONSE, responsePayload, msg.id);
         break;
       }
+      case IN.ENVIRONMENT_MOUSE_REQUEST:
+        post(OUT.ENVIRONMENT_MOUSE_RESPONSE, useFakeMouse(msg.payload || {}), msg.id);
+        break;
+      case IN.SHOW_IN_ENVIRONMENT_REQUEST:
+        post(OUT.SHOW_IN_ENVIRONMENT_RESPONSE, showFakeEnvironmentMark(msg.payload || {}), msg.id);
+        break;
       case IN.LABCLIENT_SCREENSHOT_REQUEST: {
         // Lab-client screenshot — captures the entire lab-client UI
         // (instructions pane + chrome + environment area). A real host
@@ -729,6 +743,132 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     return { ok: true, reason: null, message: null };
   }
 
+  // --- The mentor's mouse and marks on the simulated screen ------------------
+  //
+  // The mentor names spots in pixels on its latest environment screenshot,
+  // with that screenshot's size. A real host scales them to the VM's screen;
+  // the simulator has no VM, so it places them at the same fraction of the
+  // simulated desktop. Spots before any screenshot answer stale, as they do
+  // on a real host.
+  const ENV_CAPTURE_WIDTH = 800;
+  const ENV_CAPTURE_HEIGHT = 480;
+  const MOUSE_ACTIONS = ['move', 'click', 'double_click', 'right_click', 'drag', 'scroll'];
+  let screenshotFrame = null;
+
+  const isWithin = (value, limit) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= limit;
+
+  // A spot on the screenshot as fractions of the screen, or the failure to answer with.
+  function screenSpot(p, x, y) {
+    if (!Number.isInteger(p.screenshotWidth) || p.screenshotWidth <= 0 || !Number.isInteger(p.screenshotHeight) || p.screenshotHeight <= 0) {
+      return { failure: { ok: false, reason: 'failed', message: 'screenshotWidth and screenshotHeight must be the size in pixels of the screenshot the spot is on.' } };
+    }
+    if (!isWithin(x, p.screenshotWidth) || !isWithin(y, p.screenshotHeight)) {
+      return { failure: { ok: false, reason: 'failed', message: 'The spot must be on the screenshot, in its pixels.' } };
+    }
+    if (!screenshotFrame) {
+      return { failure: { ok: false, reason: 'stale', message: 'There is no screenshot of this console yet. Take one and find the spot on it.' } };
+    }
+    const shown = screenshotFrame.width / screenshotFrame.height;
+    if (Math.abs(p.screenshotWidth / p.screenshotHeight - shown) / shown > 0.02) {
+      return { failure: { ok: false, reason: 'failed', message: `The screenshot was ${screenshotFrame.width} by ${screenshotFrame.height} pixels; screenshotWidth and screenshotHeight must be its size, or its size scaled down.` } };
+    }
+    return { fx: x / p.screenshotWidth, fy: y / p.screenshotHeight };
+  }
+
+  function placeOnScreen(el, fx, fy) {
+    el.style.left = `${(fx * 100).toFixed(2)}%`;
+    el.style.top = `${(fy * 100).toFixed(2)}%`;
+    $envCanvas.appendChild(el);
+  }
+
+  function rippleAt(fx, fy, delay = 0) {
+    const ripple = document.createElement('div');
+    ripple.className = 'sim-env-ripple';
+    ripple.style.animationDelay = `${delay}ms`;
+    placeOnScreen(ripple, fx, fy);
+    setTimeout(() => ripple.remove(), 900 + delay);
+  }
+
+  function useFakeMouse(p) {
+    if (!MOUSE_ACTIONS.includes(p.action)) {
+      return { ok: false, reason: 'failed', message: `action must be one of ${MOUSE_ACTIONS.join(', ')}.` };
+    }
+    const from = screenSpot(p, p.x, p.y);
+    if (from.failure) return from.failure;
+    let to = null;
+    if (p.action === 'drag') {
+      if (!isWithin(p.toX, p.screenshotWidth) || !isWithin(p.toY, p.screenshotHeight)) {
+        return { ok: false, reason: 'failed', message: 'A drag needs toX and toY, where it ends on the screenshot.' };
+      }
+      to = screenSpot(p, p.toX, p.toY);
+    }
+    const amount = p.amount ?? 1;
+    if (p.action === 'scroll' && (!['up', 'down', undefined].includes(p.direction) || !Number.isInteger(amount) || amount < 1 || amount > 20)) {
+      return { ok: false, reason: 'failed', message: 'A scroll needs direction up or down and amount, a whole number of notches from 1 to 20.' };
+    }
+    clearEnvironmentMark();
+    if (p.action !== 'move' && p.action !== 'scroll') rippleAt(from.fx, from.fy);
+    if (p.action === 'double_click') rippleAt(from.fx, from.fy, 150);
+    if (to) rippleAt(to.fx, to.fy, 300);
+    const where = `${Math.round(p.x)},${Math.round(p.y)}`;
+    showEnvToast(p.action === 'scroll'
+      ? `[scrolled ${p.direction || 'down'} ${amount} at ${where}]`
+      : `[${p.action.replace('_', '-')} at ${where}${to ? ` to ${Math.round(p.toX)},${Math.round(p.toY)}` : ''}]`);
+    return { ok: true, reason: null, message: null };
+  }
+
+  function clearEnvironmentMark() {
+    $envCanvas.querySelectorAll('.sim-env-mark, .sim-env-tip').forEach((el) => el.remove());
+  }
+
+  function showFakeEnvironmentMark(p) {
+    const note = typeof p.note === 'string' ? p.note.trim().slice(0, 200) : '';
+    const hasSpot = p.x !== undefined && p.x !== null;
+    const hasRegion = p.width !== undefined && p.width !== null;
+    if (!hasSpot && !note) {
+      return { ok: false, reason: 'failed', message: 'Give a note, a spot (x and y), or both.' };
+    }
+    let spot = null;
+    if (hasSpot) {
+      spot = screenSpot(p, p.x, p.y);
+      if (spot.failure) return spot.failure;
+      if (hasRegion && (!(p.width > 0) || !(p.height > 0)
+        || !isWithin(p.x + p.width, p.screenshotWidth) || !isWithin(p.y + p.height, p.screenshotHeight))) {
+        return { ok: false, reason: 'failed', message: 'A region needs x and y for its top left corner and a width and height that keep it on the screenshot.' };
+      }
+    }
+    clearEnvironmentMark();
+    const caption = document.createElement('div');
+    caption.className = 'sim-env-tip';
+    const text = document.createElement('span');
+    text.textContent = note || 'Here';
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Close');
+    close.addEventListener('click', clearEnvironmentMark);
+    caption.append(text, close);
+    if (spot) {
+      const mark = document.createElement('div');
+      mark.className = hasRegion ? 'sim-env-mark sim-env-mark--region' : 'sim-env-mark';
+      if (hasRegion) {
+        mark.style.width = `${(p.width / p.screenshotWidth * 100).toFixed(2)}%`;
+        mark.style.height = `${(p.height / p.screenshotHeight * 100).toFixed(2)}%`;
+      }
+      placeOnScreen(mark, spot.fx, spot.fy);
+      caption.classList.add('sim-env-tip--at-spot');
+      placeOnScreen(caption, spot.fx, hasRegion ? spot.fy + p.height / p.screenshotHeight : spot.fy);
+    } else {
+      $envCanvas.appendChild(caption);
+    }
+    return { ok: true, reason: null, message: null };
+  }
+
+  // The student using the console clears the mark, as on a real host.
+  $envCanvas.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('.sim-env-tip')) clearEnvironmentMark();
+  });
+
   function produceFakeCommandResult(command, machine) {
     if (!command.trim()) {
       return { ok: false, stdout: '', stderr: '', exitCode: null, reason: 'failed', message: 'Empty command.' };
@@ -787,8 +927,8 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
 
   function drawEnvironmentCapture() {
     const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 480;
+    canvas.width = ENV_CAPTURE_WIDTH;
+    canvas.height = ENV_CAPTURE_HEIGHT;
     const ctx2d = canvas.getContext('2d');
 
     // Background (VM desktop)
