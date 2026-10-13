@@ -638,6 +638,8 @@ Your iframe, after resolving the session:
 | `host.showInInstructions.response`   | Optional  | Reply to `mentor.showInInstructions.request`: whether the lab is showing the spot. |
 | `host.checkTask.response`            | Optional  | Reply to `mentor.checkTask.request`: whether the task is now in the state asked for. |
 | `host.environmentKeys.response`      | Optional  | Reply to `mentor.environmentKeys.request`: whether the keys were pressed. |
+| `host.environmentMouse.response`     | Optional  | Reply to `mentor.environmentMouse.request`: whether the mouse action was done. |
+| `host.showInEnvironment.response`    | Optional  | Reply to `mentor.showInEnvironment.request`: whether the lab is showing the mark or tip over the console. |
 | `host.viewAs.response`               | Optional  | Reply to `mentor.viewAs.request`: whether the view changed. |
 
 ### `host.init`
@@ -928,6 +930,30 @@ fulfilled `id`.
 Hosts advertise this response in `host.init.capabilities` when the lab
 has a console to press keys in.
 
+### `host.environmentMouse.response`
+**Optional.** Reply to a prior `mentor.environmentMouse.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text still being typed). It says nothing about what the action did; take a screenshot to see. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot is on a screenshot that no longer matches the console; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+
+Hosts advertise this response in `host.init.capabilities` when the lab
+has virtual machines.
+
+### `host.showInEnvironment.response`
+**Optional.** Reply to a prior `mentor.showInEnvironment.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the lab is showing the mark or tip over the console. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (only when the request names a spot: as for `host.environmentMouse.response`), `"not_available"` (nothing is selected to show anything on), `"not_supported"` (the selected console has no screen to show anything on, such as a terminal, or isn't connected), `"failed"` (anything else, including a request with neither a `note` nor a spot, or a region off the screenshot). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+
+Nothing changes on screen when `ok` is `false`. Hosts advertise this
+response in `host.init.capabilities` when the lab has virtual machines.
+
 ### `host.viewAs.response`
 **Optional.** Reply to a prior `mentor.viewAs.request`.
 
@@ -1006,6 +1032,8 @@ verification model.
 | `mentor.checkTask.request` | Optional | Ask the lab to check off (or uncheck) a task in its instructions. Reply via `host.checkTask.response`. |
 | `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
+| `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the student has selected. Reply via `host.environmentMouse.response`. |
+| `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the student has selected, or show a tip over it. Reply via `host.showInEnvironment.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1347,7 +1375,95 @@ Shift+Tab is a back-tab. Combinations a terminal has no characters for,
 such as anything with Win or Ctrl with an arrow, answer
 `"not_supported"`.
 
-There's no mouse: point the student at anything only a click can reach.
+For anything only a click can reach, use `mentor.environmentMouse.request`.
+
+### Spots on a screenshot
+`mentor.environmentMouse.request` and `mentor.showInEnvironment.request`
+name places on the console by where they are on a screenshot from
+`mentor.environmentScreenshot.request`.
+
+- **In the screenshot's pixels.** `x` and `y` count from the top left of
+  the screenshot, and `screenshotWidth` and `screenshotHeight` give the
+  size of the image the spot was picked on. A mentor may scale
+  screenshots down before giving them to its model, as long as it keeps
+  their shape and sends the size its model saw. The host scales the spot
+  to the console's screen. A size whose shape is more than 2% off the
+  screen's answers `"failed"`.
+- **Against the latest screenshot.** Each screenshot the host returns
+  for `mentor.environmentScreenshot.request` records which console it
+  came from and that console's resolution. A spot is read against that
+  record, so it answers `"stale"` when there's been no screenshot of the
+  selected console since the page loaded, when the student has switched
+  to another console, or when the console's resolution has changed
+  since. Take a new screenshot, find the spot on it again, and retry.
+- **The screen at its own size.** The Skillable lab platform's
+  screenshots are the console's screen at the VM's resolution, whatever
+  size it's shown at on the page.
+
+### `mentor.environmentMouse.request`
+**Optional.** Ask the lab to use the mouse in the console the student
+has selected, at a spot on a screenshot of it: to click what keys can't
+reach, such as a button with no shortcut, a tray icon or an item in a
+web page.
+
+| Field              | Type     | Notes |
+|--------------------|----------|-------|
+| `action`           | string   | `"move"`, `"click"`, `"double_click"`, `"right_click"`, `"drag"` or `"scroll"`. |
+| `x`, `y`           | number   | Where, in pixels on the screenshot. For a drag, where it starts. See [Spots on a screenshot](#spots-on-a-screenshot). |
+| `screenshotWidth`, `screenshotHeight` | integer | The size in pixels of the screenshot `x` and `y` are on. |
+| `toX`, `toY`       | number?  | Drag only, and required for it: where the drag ends, on the same screenshot. |
+| `direction`        | string?  | Scroll only: `"up"` or `"down"`. Defaults to `"down"`. |
+| `amount`           | integer? | Scroll only: how many wheel notches, 1 to 20. Defaults to 1. |
+
+**Look before and after.** Take a screenshot to find the spot, and
+another after the action to see what it did; give the console a moment
+(about a second) first. The response says only whether the action was
+done.
+
+**After the text.** Like keys, a mouse action sent right after text
+waits for that text to finish typing.
+
+**The student sees it.** The Skillable lab platform shows a ripple on
+the console where the mentor clicks: two for a double-click, and one at
+each end of a drag.
+
+**Keys first.** Where a key or shortcut does the job, prefer
+`mentor.environmentKeys.request`: it doesn't depend on where things are
+on the screen. And where the point is for the student to learn where
+something is, show them with `mentor.showInEnvironment.request` rather
+than clicking it for them.
+
+Consoles with no screen the mouse can reach answer `"not_supported"`:
+terminals (SSH and PowerShell), consoles that aren't connected, and
+consoles the student can only watch at the moment, such as while an
+instructor is monitoring the lab or a dialog covers the console.
+
+### `mentor.showInEnvironment.request`
+**Optional.** Ask the lab to bring the student's attention to a spot or
+region on the console the student has selected, or to show a tip over
+the console as a whole. It's the console's counterpart to
+`mentor.showInInstructions.request`: the lab shows the same kind of
+caption, with a way back to the mentor.
+
+| Field              | Type     | Notes |
+|--------------------|----------|-------|
+| `note`             | string?  | A short caption, such as what to click and why. Plain text: hosts show it as text, never as markup, and may cut it short (the Skillable lab platform keeps 200 characters). Required when no spot is given. |
+| `x`, `y`           | number?  | A spot to point at, in pixels on the screenshot. With `width` and `height`, the top left of a region. See [Spots on a screenshot](#spots-on-a-screenshot). |
+| `screenshotWidth`, `screenshotHeight` | integer? | Required with `x` and `y`: the size in pixels of the screenshot they're on. |
+| `width`, `height`  | number?  | The size of a region to outline, on the same screenshot. Both or neither, and only with `x` and `y`. |
+
+**Three shapes.** With `x` and `y`, the lab marks the spot and hangs the
+caption from it. With `width` and `height` as well, it outlines the
+region instead. With no spot, the caption is a tip about the screen as
+a whole; a tip never answers `"stale"`.
+
+**The student stays in control.** The mark never blocks the console:
+clicks and keys go through it to the VM. It goes when the student uses
+the mouse, keyboard or touch in the console, closes the caption, or
+follows its link back to the mentor, and when the console changes:
+another console is selected, it disconnects, or its resolution changes.
+A new request replaces the previous mark. While the spot is scrolled
+out of view, the mark hides.
 
 ### `mentor.viewAs.request`
 **Optional.** Ask the lab to treat a lab author as a student for
