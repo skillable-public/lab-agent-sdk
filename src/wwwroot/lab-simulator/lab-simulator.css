@@ -245,7 +245,7 @@ html, body {
   color: #1f2933;
   font-size: 13px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  pointer-events: none;
+  pointer-events: auto;
 }
 .sim-env-tip--at-spot {
   transform: translate(-50%, 14px);

@@ -1479,7 +1479,9 @@ region instead. With no spot, the caption is a tip about the screen as
 a whole; a tip never answers `"stale"`.
 
 **The student stays in control.** The mark never blocks the console:
-clicks and keys go through it to the VM. It goes when the student uses
+clicks and keys go through it to the VM, except on the caption itself,
+which takes the clicks that land on it rather than passing them to
+whatever it covers. It goes when the student uses
 the mouse, keyboard or touch in the console or closes the caption, and
 when the console changes: another console is selected, it disconnects,
 or its resolution changes. Following the caption's link back to the
