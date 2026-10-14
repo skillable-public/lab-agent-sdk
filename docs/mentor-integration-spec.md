@@ -629,6 +629,7 @@ Your iframe, after resolving the session:
 | `host.theme.change`                  | Optional  | Theme switched at runtime. |
 | `host.locale.change`                 | Optional  | Locale switched at runtime. |
 | `host.send.message`                  | Optional  | Inject a user-authored message on the student's behalf. |
+| `host.environmentTour.ended`         | Optional  | A tour the mentor showed over the console has ended: finished, closed, or replaced. |
 | `host.environmentScreenshot.response`| Optional  | Reply to `mentor.environmentScreenshot.request` with image data or a failure reason. |
 | `host.labClientScreenshot.response`  | Optional  | Reply to `mentor.labClientScreenshot.request` with image data or a failure reason. |
 | `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
@@ -661,7 +662,7 @@ iframe receives nothing, carry on with defaults.
 | `textColor`      | string?                        | The lab theme's text color for that mode, as a CSS color. Absent when the host has none. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
-| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
+| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.environmentTour.ended`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -711,6 +712,25 @@ question into the mentor".
 | Field      | Type     |
 |------------|----------|
 | `content`  | string   |
+
+### `host.environmentTour.ended`
+**Optional.** Tells the mentor that a tour it showed with
+`mentor.showInEnvironment.request` and `steps` has ended, so it can
+pick up where the student left off. Sent once per tour, with no
+envelope `id` of its own. See [Tours](#tours).
+
+| Field       | Type     | Notes |
+|-------------|----------|-------|
+| `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that started the tour. `null` when the host doesn't have it. |
+| `completed` | boolean  | `true` only when the student pressed Done on the last step. |
+| `reason`    | string   | Why it ended: `"done"` (Done on the last step), `"closed"` (the caption's close button), `"back_to_mentor"` (the caption's link back to the mentor), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed). Receivers must tolerate unknown values. |
+| `step`      | integer  | The step on screen when it ended, from 1. |
+| `steps`     | integer  | How many steps the tour had. |
+
+A mentor might pick the conversation up when the student finishes
+(`"done"`) or comes back to it (`"back_to_mentor"`), say nothing for
+`"closed"` and `"console_changed"`, and ignore `"replaced"`, which its
+own request caused.
 
 ### `host.environmentScreenshot.response`
 **Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
@@ -947,8 +967,8 @@ has virtual machines.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the lab is showing the mark or tip over the console. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (only when the request names a spot: as for `host.environmentMouse.response`), `"not_available"` (nothing is selected to show anything on), `"not_supported"` (the selected console has no screen to show anything on, such as a terminal, or isn't connected), `"failed"` (anything else, including a request with neither a `note` nor a spot, or a region off the screenshot). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `ok`      | boolean  | `true` when the lab is showing the mark or tip over the console, or for a tour, its first step. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (only when the request names a spot: as for `host.environmentMouse.response`), `"not_available"` (nothing is selected to show anything on), `"not_supported"` (the selected console has no screen to show anything on, such as a terminal, or isn't connected), `"failed"` (anything else, including a request with neither a `note` nor a spot, a region off the screenshot, `steps` with a single mark's fields as well, or `steps` that aren't 1 to 10 valid marks). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 
 Nothing changes on screen when `ok` is `false`. Hosts advertise this
@@ -1033,7 +1053,7 @@ verification model.
 | `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the student has selected. Reply via `host.environmentMouse.response`. |
-| `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the student has selected, or show a tip over it. Reply via `host.showInEnvironment.response`. |
+| `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the student has selected, show a tip over it, or walk the student through a tour of several. Reply via `host.showInEnvironment.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1441,7 +1461,8 @@ instructor is monitoring the lab or a dialog covers the console.
 ### `mentor.showInEnvironment.request`
 **Optional.** Ask the lab to bring the student's attention to a spot or
 region on the console the student has selected, or to show a tip over
-the console as a whole. It's the console's counterpart to
+the console as a whole, or to walk the student through several of
+these in turn as a tour. It's the console's counterpart to
 `mentor.showInInstructions.request`: the lab shows the same kind of
 caption, with a way back to the mentor.
 
@@ -1449,8 +1470,9 @@ caption, with a way back to the mentor.
 |--------------------|----------|-------|
 | `note`             | string?  | A short caption, such as what to click and why. Plain text: hosts show it as text, never as markup, and may cut it short (the Skillable lab platform keeps 200 characters). Required when no spot is given. |
 | `x`, `y`           | number?  | A spot to point at, in pixels on the screenshot. With `width` and `height`, the top left of a region. See [Spots on a screenshot](#spots-on-a-screenshot). |
-| `screenshotWidth`, `screenshotHeight` | integer? | Required with `x` and `y`: the size in pixels of the screenshot they're on. |
+| `screenshotWidth`, `screenshotHeight` | integer? | Required with `x` and `y`, or when any step has a spot: the size in pixels of the screenshot they're on. |
 | `width`, `height`  | number?  | The size of a region to outline, on the same screenshot. Both or neither, and only with `x` and `y`. |
+| `steps`            | object[]? | A tour: 1 to 10 marks, each `{ note?, x?, y?, width?, height? }` with the same rules as a single mark, all on the same screenshot. With `steps`, leave out the top-level `note`, `x`, `y`, `width` and `height`. See [Tours](#tours). |
 
 **Three shapes.** With `x` and `y`, the lab marks the spot and hangs the
 caption from it. With `width` and `height` as well, it outlines the
@@ -1464,12 +1486,44 @@ follows its link back to the mentor, and when the console changes:
 another console is selected, it disconnects, or its resolution changes.
 While the spot is scrolled out of view, the mark hides.
 
-**One mark at a time.** A new request replaces the mark on screen at
-once, so a mark replaced right after it appears is barely seen. Pace
-them: show one, let the student act on it, then show the next, rather
-than sending a walk-through as a run of marks. Hosts label the caption
-(the Skillable lab platform as a pointer or a tip from the mentor), so
-the note needn't start with "Tip:".
+#### Tours
+With `steps`, the lab shows a tour: one step at a time in the same
+caption, with a count ("2 of 4"), a Back button from the second step,
+and Next, or Done on the last step. The student moves through it at
+their own pace, with no round trip to the mentor. Each step is a spot,
+a region or a tip, as for a single mark, and every step's spot is on
+the one screenshot whose size is the top-level `screenshotWidth` and
+`screenshotHeight`.
+
+- **Validated whole.** `steps` that aren't an array, are empty, have
+  more than 10 marks, or hold a mark that would fail on its own answer
+  `"failed"`, as does `steps` sent with a top-level `note`, `x`, `y`,
+  `width` or `height` ("Give steps or a single mark, not both."). The
+  `"stale"` checks apply when the tour is shown, as for a single mark.
+  The response says `ok` once the first step is showing.
+- **It stays while the student works.** Unlike a single mark, a tour
+  doesn't go when the student uses the console, since its steps often
+  ask them to click something. It ends when they press Done, close the
+  caption or follow its link back to the mentor, when the mentor shows
+  another mark or tour, and when the console changes.
+- **The mentor hears how it ended.** The host sends
+  [`host.environmentTour.ended`](#hostenvironmenttourended) when a tour
+  ends, however it ends.
+
+**One mark at a time.** A new request replaces the mark or tour on
+screen at once, so a mark replaced right after it appears is barely
+seen. A mentor has three ways to show more than one thing:
+
+- **One mark** for one thing: a spot, a region or a tip.
+- **A tour** to walk the student through several things on the same
+  screen, in order. They step through it with Next at their own pace.
+- **Separate marks across turns** when the next step depends on what
+  the student does first, such as a dialog that only opens after a
+  click: show one, let the student act on it, take a new screenshot,
+  then show the next. Don't send a run of single marks back to back.
+
+Hosts label the caption (the Skillable lab platform as a pointer or a
+tip from the mentor), so the note needn't start with "Tip:".
 
 ### `mentor.viewAs.request`
 **Optional.** Ask the lab to treat a lab author as a student for

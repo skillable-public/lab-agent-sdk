@@ -52,7 +52,8 @@
     THEME_CHANGE:                   'host.theme.change',
     LOCALE_CHANGE:                  'host.locale.change',
     SEND_MESSAGE:                   'host.send.message',
-    SCREENSHOT_RESPONSE:            'host.environmentScreenshot.response',
+    ENVIRONMENT_TOUR_ENDED:         'host.environmentTour.ended',
+    SCREENSHOT_RESPONSE:           'host.environmentScreenshot.response',
     LABCLIENT_SCREENSHOT_RESPONSE:  'host.labClientScreenshot.response',
     CONNECTION_QUALITY_RESPONSE:    'host.environmentConnectionQuality.response',
     LAB_INSTRUCTIONS_RESPONSE:      'host.labInstructions.response',
@@ -585,7 +586,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         post(OUT.ENVIRONMENT_MOUSE_RESPONSE, useFakeMouse(msg.payload || {}), msg.id);
         break;
       case IN.SHOW_IN_ENVIRONMENT_REQUEST:
-        post(OUT.SHOW_IN_ENVIRONMENT_RESPONSE, showFakeEnvironmentMark(msg.payload || {}), msg.id);
+        post(OUT.SHOW_IN_ENVIRONMENT_RESPONSE, showFakeEnvironmentMark(msg.payload || {}, msg.id), msg.id);
         break;
       case IN.LABCLIENT_SCREENSHOT_REQUEST: {
         // Lab-client screenshot — captures the entire lab-client UI
@@ -806,7 +807,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     if (p.action === 'scroll' && (!['up', 'down', undefined].includes(p.direction) || !Number.isInteger(amount) || amount < 1 || amount > 20)) {
       return { ok: false, reason: 'failed', message: 'A scroll needs direction up or down and amount, a whole number of notches from 1 to 20.' };
     }
-    clearEnvironmentMark();
+    if (!envTour) clearEnvironmentMark();
     if (p.action !== 'move' && p.action !== 'scroll') rippleAt(from.fx, from.fy);
     if (p.action === 'double_click') rippleAt(from.fx, from.fy, 150);
     if (to) rippleAt(to.fx, to.fy, 300);
@@ -817,56 +818,152 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     return { ok: true, reason: null, message: null };
   }
 
-  function clearEnvironmentMark() {
+  // The tour on screen, if any: { requestId, steps, index }. Its steps are
+  // already checked and placed, so moving through them can't fail.
+  let envTour = null;
+
+  // Takes the mark or tour off the screen. A tour that goes tells the mentor
+  // how it ended, with `reason` as host.environmentTour.ended carries it.
+  function clearEnvironmentMark(reason) {
     $envCanvas.querySelectorAll('.sim-env-mark, .sim-env-tip').forEach((el) => el.remove());
+    if (!envTour) return;
+    const tour = envTour;
+    envTour = null;
+    post(OUT.ENVIRONMENT_TOUR_ENDED, {
+      requestId: tour.requestId,
+      completed: reason === 'done',
+      reason,
+      step: tour.index + 1,
+      steps: tour.steps.length,
+    });
   }
 
-  function showFakeEnvironmentMark(p) {
-    const note = typeof p.note === 'string' ? p.note.trim().slice(0, 200) : '';
-    const hasSpot = p.x !== undefined && p.x !== null;
-    const hasRegion = p.width !== undefined && p.width !== null;
+  // One mark checked against the screenshot: { note, spot, region }, or the failure to answer with.
+  function checkEnvironmentMark(m, size) {
+    const note = typeof m.note === 'string' ? m.note.trim().slice(0, 200) : '';
+    const hasSpot = m.x !== undefined && m.x !== null;
+    const hasRegion = m.width !== undefined && m.width !== null;
     if (!hasSpot && !note) {
-      return { ok: false, reason: 'failed', message: 'Give a note, a spot (x and y), or both.' };
+      return { failure: { ok: false, reason: 'failed', message: 'Give a note, a spot (x and y), or both.' } };
     }
-    let spot = null;
-    if (hasSpot) {
-      spot = screenSpot(p, p.x, p.y);
-      if (spot.failure) return spot.failure;
-      if (hasRegion && (!(p.width > 0) || !(p.height > 0)
-        || !isWithin(p.x + p.width, p.screenshotWidth) || !isWithin(p.y + p.height, p.screenshotHeight))) {
-        return { ok: false, reason: 'failed', message: 'A region needs x and y for its top left corner and a width and height that keep it on the screenshot.' };
-      }
+    if (!hasSpot) return { note, spot: null, region: null };
+    const spot = screenSpot(size, m.x, m.y);
+    if (spot.failure) return spot;
+    if (hasRegion && (!(m.width > 0) || !(m.height > 0)
+      || !isWithin(m.x + m.width, size.screenshotWidth) || !isWithin(m.y + m.height, size.screenshotHeight))) {
+      return { failure: { ok: false, reason: 'failed', message: 'A region needs x and y for its top left corner and a width and height that keep it on the screenshot.' } };
     }
-    clearEnvironmentMark();
+    const region = hasRegion ? { fw: m.width / size.screenshotWidth, fh: m.height / size.screenshotHeight } : null;
+    return { note, spot, region };
+  }
+
+  // Draws a checked mark with its caption. `tour` adds the step count and
+  // Back, Next and Done; without it the caption is a single mark's.
+  function drawEnvironmentMark({ note, spot, region }, tour) {
+    $envCanvas.querySelectorAll('.sim-env-mark, .sim-env-tip').forEach((el) => el.remove());
     const caption = document.createElement('div');
     caption.className = 'sim-env-tip';
+    const body = document.createElement('div');
+    body.className = 'sim-env-tip__body';
     const text = document.createElement('span');
     text.textContent = note || 'Here';
+    const backToMentor = document.createElement('button');
+    backToMentor.type = 'button';
+    backToMentor.className = 'sim-env-tip__link';
+    backToMentor.textContent = 'Back to mentor';
+    backToMentor.addEventListener('click', () => {
+      clearEnvironmentMark('back_to_mentor');
+      activateTab('mentor');
+    });
+    body.append(text, backToMentor);
+    if (tour) {
+      const nav = document.createElement('div');
+      nav.className = 'sim-env-tip__nav';
+      const count = document.createElement('span');
+      count.textContent = `${tour.index + 1} of ${tour.steps.length}`;
+      nav.append(count);
+      if (tour.index > 0) {
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.textContent = 'Back';
+        back.addEventListener('click', () => showTourStep(tour.index - 1));
+        nav.append(back);
+      }
+      const last = tour.index === tour.steps.length - 1;
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.textContent = last ? 'Done' : 'Next';
+      next.addEventListener('click', () => (last ? clearEnvironmentMark('done') : showTourStep(tour.index + 1)));
+      nav.append(next);
+      body.append(nav);
+    }
     const close = document.createElement('button');
     close.type = 'button';
+    close.className = 'sim-env-tip__close';
     close.textContent = '×';
     close.setAttribute('aria-label', 'Close');
-    close.addEventListener('click', clearEnvironmentMark);
-    caption.append(text, close);
+    close.addEventListener('click', () => clearEnvironmentMark('closed'));
+    caption.append(body, close);
     if (spot) {
       const mark = document.createElement('div');
-      mark.className = hasRegion ? 'sim-env-mark sim-env-mark--region' : 'sim-env-mark';
-      if (hasRegion) {
-        mark.style.width = `${(p.width / p.screenshotWidth * 100).toFixed(2)}%`;
-        mark.style.height = `${(p.height / p.screenshotHeight * 100).toFixed(2)}%`;
+      mark.className = region ? 'sim-env-mark sim-env-mark--region' : 'sim-env-mark';
+      if (region) {
+        mark.style.width = `${(region.fw * 100).toFixed(2)}%`;
+        mark.style.height = `${(region.fh * 100).toFixed(2)}%`;
       }
       placeOnScreen(mark, spot.fx, spot.fy);
       caption.classList.add('sim-env-tip--at-spot');
-      placeOnScreen(caption, spot.fx, hasRegion ? spot.fy + p.height / p.screenshotHeight : spot.fy);
+      placeOnScreen(caption, spot.fx, region ? spot.fy + region.fh : spot.fy);
     } else {
       $envCanvas.appendChild(caption);
     }
+  }
+
+  function showTourStep(index) {
+    if (!envTour) return;
+    envTour.index = index;
+    drawEnvironmentMark(envTour.steps[index], envTour);
+  }
+
+  const MAX_TOUR_STEPS = 10;
+  const MARK_FIELDS = ['note', 'x', 'y', 'width', 'height'];
+
+  // `requestId` is the request's envelope id, which host.environmentTour.ended echoes.
+  function showFakeEnvironmentMark(p, requestId) {
+    const size = { screenshotWidth: p.screenshotWidth, screenshotHeight: p.screenshotHeight };
+    if (p.steps !== undefined) {
+      if (MARK_FIELDS.some((f) => p[f] !== undefined && p[f] !== null)) {
+        return { ok: false, reason: 'failed', message: 'Give steps or a single mark, not both.' };
+      }
+      if (!Array.isArray(p.steps) || p.steps.length < 1 || p.steps.length > MAX_TOUR_STEPS) {
+        return { ok: false, reason: 'failed', message: `steps must be an array of 1 to ${MAX_TOUR_STEPS} marks.` };
+      }
+      const steps = [];
+      for (const [i, step] of p.steps.entries()) {
+        const checked = checkEnvironmentMark(step && typeof step === 'object' ? step : {}, size);
+        if (checked.failure) {
+          return checked.failure.reason === 'stale'
+            ? checked.failure
+            : { ...checked.failure, message: `Step ${i + 1}: ${checked.failure.message}` };
+        }
+        steps.push(checked);
+      }
+      clearEnvironmentMark('replaced');
+      envTour = { requestId: requestId || null, steps, index: 0 };
+      showTourStep(0);
+      return { ok: true, reason: null, message: null };
+    }
+    const checked = checkEnvironmentMark(p, size);
+    if (checked.failure) return checked.failure;
+    clearEnvironmentMark('replaced');
+    drawEnvironmentMark(checked, null);
     return { ok: true, reason: null, message: null };
   }
 
-  // The student using the console clears the mark, as on a real host.
+  // The student using the console clears a single mark, as on a real host.
+  // A tour stays, since its steps often ask them to click something.
   $envCanvas.addEventListener('pointerdown', (e) => {
-    if (!e.target.closest('.sim-env-tip')) clearEnvironmentMark();
+    if (!envTour && !e.target.closest('.sim-env-tip')) clearEnvironmentMark();
   });
 
   function produceFakeCommandResult(command, machine) {
