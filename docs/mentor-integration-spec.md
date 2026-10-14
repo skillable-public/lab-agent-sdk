@@ -1242,11 +1242,13 @@ issues the student is reporting.
 No payload fields beyond the envelope; assign an `id` and expect the
 host to echo it on its `host.environmentConnectionQuality.response`.
 
-Typical triggers on the iframe side: a `/connection` slash command for
-manual checks, or an automatic check when the student's message
-mentions connection-quality keywords ("slow," "lag," "frozen," etc.).
-Both patterns are sample-agent UX choices, not spec requirements — the
-protocol just defines the request/response.
+Typical triggers on the iframe side: a tool the mentor's model calls
+when it judges the connection worth measuring, a `/connection` slash
+command for manual checks, or, for a mentor without a model, an
+automatic check when the student's message mentions connection-quality
+keywords ("slow," "lag," "frozen," etc.). These are sample-agent UX
+choices, not spec requirements: the protocol just defines the
+request/response.
 
 Iframes SHOULD only fire this when
 `host.environmentConnectionQuality.response` is present in
