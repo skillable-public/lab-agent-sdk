@@ -1016,6 +1016,7 @@ action.
 | `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
+| `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (the mentor's latest screenshot of this console) or `"now"` (the screen when the wait began). Absent for `"settles"`. Receivers must tolerate unknown values. |
 
 A `"timeout"` isn't an error so much as an answer: the screen stayed as
 it was, or kept moving. Take a screenshot to see where things stand.
@@ -1537,7 +1538,7 @@ as soon as the screen does what was asked, or when time runs out.
 
 | Field            | Type     | Notes |
 |------------------|----------|-------|
-| `until`          | string   | `"changes"`: until the screen visibly changes from how it is when the request arrives. `"settles"`: until it stops changing for `quietSeconds`. |
+| `until`          | string   | `"changes"`: until the screen visibly differs from the latest screenshot the mentor got of this console, from a screenshot request or returned with an action, so a change that came before the request answers at once, as does a screen at a different size; from the screen when the request arrives if there is no such screenshot. `"settles"`: until it stops changing for `quietSeconds`. |
 | `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 60. Defaults to 10. |
 | `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0 and at most 10. Defaults to 2. |
 
