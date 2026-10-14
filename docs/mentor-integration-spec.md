@@ -1542,7 +1542,7 @@ as soon as the screen does what was asked, or when time runs out.
 |------------------|----------|-------|
 | `until`          | string   | `"changes"`: until the screen visibly differs from the latest screenshot the mentor got of this console, from a screenshot request or returned with an action, so a change that came before the request answers at once, as does a screen at a different size; from the screen when the request arrives if there is no such screenshot. `"settles"`: until it stops changing for `quietSeconds`. |
 | `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 60. Defaults to 10. |
-| `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0 and at most 10. Defaults to 2. |
+| `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0, at most 10 and no more than `timeoutSeconds`. Defaults to 2, or to `timeoutSeconds` when that is shorter. |
 
 **What counts as a change.** The host compares a small grayscale
 thumbnail of the screen (about 64 by 40, each pixel the average of the
