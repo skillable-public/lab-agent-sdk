@@ -952,6 +952,7 @@ fulfilled `id`.
 | `reason`  | string?  | Failure category when `ok` is `false`: `"not_available"` (nothing is selected to press keys in), `"not_supported"` (the selected console can't take these keys, such as a terminal asked for Win+R, or isn't connected), `"failed"` (anything else, including an unknown key name or a bad `repeat`). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the keys, as described under [Screenshot after an action](#screenshot-after-an-action). |
+| `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
 
 Hosts advertise this response in `host.init.capabilities` when the lab
 has a console to press keys in.
@@ -965,6 +966,7 @@ has a console to press keys in.
 | `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot is on a screenshot that no longer matches the console; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the action, as described under [Screenshot after an action](#screenshot-after-an-action). |
+| `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
 
 Hosts advertise this response in `host.init.capabilities` when the lab
 has virtual machines.
@@ -975,6 +977,20 @@ sets `screenshot: true` and the action is taken, the response carries a
 `screenshot` of the console once its screen settles: when it has been
 still for half a second, or after 3 seconds at most. It saves a separate
 `mentor.environmentScreenshot.request` after every step.
+
+Half a second of stillness can come before a slow app has reacted, such
+as a course that takes several seconds to move to its next page. For
+those, the request can say what to wait for with `waitUntil`, an object
+with the fields of [`mentor.environmentWait.request`](#mentorenvironmentwaitrequest):
+`until` (`"changes"` or `"settles"`), `timeoutSeconds` and `quietSeconds`.
+The host takes the action, waits for that, and only then captures the
+screen. A wait until the screen changes also lets the change settle for
+half a second, so the screenshot isn't caught mid-transition. A bad
+`waitUntil` refuses the whole request with `"failed"`, before the action
+is taken. The response's `waited` says how the wait went, with the fields
+of [`host.environmentWait.response`](#hostenvironmentwaitresponse):
+`ok`, `reason` (such as `"timeout"`), `message` and `waitedMs`. A wait
+that times out still returns the screen, which shows why.
 
 | Field      | Type     | Notes |
 |------------|----------|-------|
@@ -1424,6 +1440,7 @@ same console text goes to, wherever its focus is.
 | `keys`   | string   | Key names joined with `+`, such as `Ctrl+Shift+Esc`. Case doesn't matter, and order doesn't either: hosts press modifiers first. At most one key besides Ctrl, Alt, Shift and Win. |
 | `repeat` | integer? | How many times to press the keys, 1 to 20. Defaults to 1. |
 | `screenshot` | boolean? | `true` to get the screen back with the response, once it settles after the keys. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
+| `waitUntil` | object? | `{ until, timeoutSeconds?, quietSeconds? }`: wait for the screen to change or settle after the keys, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
 
 **Key names:** `Ctrl`, `Alt`, `Shift`, `Win`, `Tab`, `Enter`, `Esc`,
 `Space`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`,
@@ -1486,6 +1503,7 @@ web page.
 | `direction`        | string?  | Scroll only: `"up"` or `"down"`. Defaults to `"down"`. |
 | `amount`           | integer? | Scroll only: how many wheel notches, 1 to 20. Defaults to 1. |
 | `screenshot`       | boolean? | `true` to get the screen back with the response, once it settles after the action. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
+| `waitUntil`        | object?  | `{ until, timeoutSeconds?, quietSeconds? }`: wait for the screen to change or settle after the action, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
 
 **Look before and after.** Take a screenshot to find the spot, and look
 again after the action to see what it did: set `screenshot`, or take a

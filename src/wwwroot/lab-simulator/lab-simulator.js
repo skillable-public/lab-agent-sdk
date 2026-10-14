@@ -585,9 +585,11 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         post(OUT.SCREENSHOT_RESPONSE, responsePayload, msg.id);
         break;
       }
-      case IN.ENVIRONMENT_MOUSE_REQUEST:
-        answerAction(OUT.ENVIRONMENT_MOUSE_RESPONSE, msg, useFakeMouse(msg.payload || {}));
+      case IN.ENVIRONMENT_MOUSE_REQUEST: {
+        const badWait = badActionWait(msg.payload);
+        answerAction(OUT.ENVIRONMENT_MOUSE_RESPONSE, msg, badWait || useFakeMouse(msg.payload || {}));
         break;
+      }
       case IN.ENVIRONMENT_WAIT_REQUEST:
         waitForFakeScreen(msg.payload || {}, (response) => post(OUT.ENVIRONMENT_WAIT_RESPONSE, response, msg.id));
         break;
@@ -662,6 +664,11 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         // names them instead.
         const keys = msg.payload?.keys;
         const repeat = msg.payload?.repeat;
+        const badWait = badActionWait(msg.payload);
+        if (badWait) {
+          post(OUT.ENVIRONMENT_KEYS_RESPONSE, badWait, msg.id);
+          break;
+        }
         if (typeof keys !== 'string' || !keys.trim()) {
           post(OUT.ENVIRONMENT_KEYS_RESPONSE, { ok: false, reason: 'failed', message: 'Name the keys to press.' }, msg.id);
           break;
@@ -829,19 +836,45 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   // so the mentor's next spots are read against it, after a short pause
   // standing in for a real host waiting for the screen to settle.
   const ACTION_SETTLE_MS = 500;
+  // A keys or mouse request's waitUntil that the host would refuse before
+  // acting, as the failed response, or null when it's fine or absent.
+  function badActionWait(payload) {
+    const wait = payload?.waitUntil;
+    if (wait === undefined || wait === null) return null;
+    const inRange = (value, max) => value === undefined || (typeof value === 'number' && value > 0 && value <= max);
+    if ((wait.until !== 'changes' && wait.until !== 'settles') || !inRange(wait.timeoutSeconds, 60) || !inRange(wait.quietSeconds, 10)) {
+      return { ok: false, reason: 'failed', message: 'waitUntil needs until "changes" or "settles", timeoutSeconds up to 60 and quietSeconds up to 10.' };
+    }
+    return null;
+  }
+
+  // Answers a keys or mouse request once its action is done: after the wait
+  // it asked for in waitUntil, reported in waited, and with the screen when it
+  // asked for screenshot.
   function answerAction(type, msg, response) {
-    if (msg.payload?.screenshot !== true || !response.ok) {
+    const wantsScreenshot = msg.payload?.screenshot === true;
+    const wait = msg.payload?.waitUntil;
+    if (!response.ok || (!wantsScreenshot && !wait)) {
       post(type, response, msg.id);
       return;
     }
-    setTimeout(() => {
-      const shot = produceFakeScreenshot('environment');
-      if (shot.ok) {
-        screenshotFrame = { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT };
-        Object.assign(shot, { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT });
+    const finish = (waited) => {
+      const answer = waited ? { ...response, waited } : { ...response };
+      if (!wantsScreenshot) {
+        post(type, answer, msg.id);
+        return;
       }
-      post(type, { ...response, screenshot: shot }, msg.id);
-    }, ACTION_SETTLE_MS);
+      setTimeout(() => {
+        const shot = produceFakeScreenshot('environment');
+        if (shot.ok) {
+          screenshotFrame = { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT };
+          Object.assign(shot, { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT });
+        }
+        post(type, { ...answer, screenshot: shot }, msg.id);
+      }, ACTION_SETTLE_MS);
+    };
+    if (wait) waitForFakeScreen(wait, finish);
+    else finish(null);
   }
 
   // --- Waiting on the simulated screen ---------------------------------------
