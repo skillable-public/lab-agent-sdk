@@ -871,10 +871,8 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     backToMentor.type = 'button';
     backToMentor.className = 'sim-env-tip__link';
     backToMentor.textContent = 'Back to mentor';
-    backToMentor.addEventListener('click', () => {
-      clearEnvironmentMark('back_to_mentor');
-      activateTab('mentor');
-    });
+    // The desktop stays in view beside the mentor, so the mark stays up.
+    backToMentor.addEventListener('click', () => activateTab('mentor'));
     body.append(text, backToMentor);
     if (tour) {
       const nav = document.createElement('div');

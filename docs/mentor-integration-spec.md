@@ -723,14 +723,13 @@ envelope `id` of its own. See [Tours](#tours).
 |-------------|----------|-------|
 | `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that started the tour. `null` when the host doesn't have it. |
 | `completed` | boolean  | `true` only when the student pressed Done on the last step. |
-| `reason`    | string   | Why it ended: `"done"` (Done on the last step), `"closed"` (the caption's close button), `"back_to_mentor"` (the caption's link back to the mentor), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed). Receivers must tolerate unknown values. |
+| `reason`    | string   | Why it ended: `"done"` (Done on the last step), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed). Receivers must tolerate unknown values. |
 | `step`      | integer  | The step on screen when it ended, from 1. |
 | `steps`     | integer  | How many steps the tour had. |
 
 A mentor might pick the conversation up when the student finishes
-(`"done"`) or comes back to it (`"back_to_mentor"`), say nothing for
-`"closed"` and `"console_changed"`, and ignore `"replaced"`, which its
-own request caused.
+(`"done"`), say nothing for `"closed"` and `"console_changed"`, and
+ignore `"replaced"`, which its own request caused.
 
 ### `host.environmentScreenshot.response`
 **Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
@@ -1481,9 +1480,11 @@ a whole; a tip never answers `"stale"`.
 
 **The student stays in control.** The mark never blocks the console:
 clicks and keys go through it to the VM. It goes when the student uses
-the mouse, keyboard or touch in the console, closes the caption, or
-follows its link back to the mentor, and when the console changes:
-another console is selected, it disconnects, or its resolution changes.
+the mouse, keyboard or touch in the console or closes the caption, and
+when the console changes: another console is selected, it disconnects,
+or its resolution changes. Following the caption's link back to the
+mentor only opens the mentor: the console stays in view beside it, so
+the mark stays up.
 While the spot is scrolled out of view, the mark hides.
 
 #### Tours
@@ -1503,9 +1504,10 @@ the one screenshot whose size is the top-level `screenshotWidth` and
   The response says `ok` once the first step is showing.
 - **It stays while the student works.** Unlike a single mark, a tour
   doesn't go when the student uses the console, since its steps often
-  ask them to click something. It ends when they press Done, close the
-  caption or follow its link back to the mentor, when the mentor shows
-  another mark or tour, and when the console changes.
+  ask them to click something, nor when they follow its link back to
+  the mentor to ask about a step. It ends when they press Done or close
+  the caption, when the mentor shows another mark or tour, and when the
+  console changes.
 - **The mentor hears how it ended.** The host sends
   [`host.environmentTour.ended`](#hostenvironmenttourended) when a tour
   ends, however it ends.
