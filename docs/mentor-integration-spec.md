@@ -728,8 +728,9 @@ envelope `id` of its own. See [Tours](#tours).
 | `steps`     | integer  | How many steps the tour had. |
 
 A mentor might pick the conversation up when the student finishes
-(`"done"`), say nothing for `"closed"` and `"console_changed"`, and
-ignore `"replaced"`, which its own request caused.
+(`"done"`), offer to show the tour again after `"console_changed"`, once
+a new screenshot shows where things are now, say nothing for
+`"closed"`, and ignore `"replaced"`, which its own request caused.
 
 ### `host.environmentScreenshot.response`
 **Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
