@@ -640,6 +640,7 @@ Your iframe, after resolving the session:
 | `host.checkTask.response`            | Optional  | Reply to `mentor.checkTask.request`: whether the task is now in the state asked for. |
 | `host.environmentKeys.response`      | Optional  | Reply to `mentor.environmentKeys.request`: whether the keys were pressed. |
 | `host.environmentMouse.response`     | Optional  | Reply to `mentor.environmentMouse.request`: whether the mouse action was done. |
+| `host.environmentWait.response`      | Optional  | Reply to `mentor.environmentWait.request`: whether the console's screen changed, or settled, in time. |
 | `host.showInEnvironment.response`    | Optional  | Reply to `mentor.showInEnvironment.request`: whether the lab is showing the mark or tip over the console. |
 | `host.viewAs.response`               | Optional  | Reply to `mentor.viewAs.request`: whether the view changed. |
 
@@ -947,9 +948,10 @@ fulfilled `id`.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the host pressed the keys (or queued them behind text still being typed). It says nothing about what they did; take a screenshot to see. |
+| `ok`      | boolean  | `true` when the host pressed the keys (or queued them behind text still being typed). It says nothing about what they did; ask for `screenshot`, or take a screenshot, to see. |
 | `reason`  | string?  | Failure category when `ok` is `false`: `"not_available"` (nothing is selected to press keys in), `"not_supported"` (the selected console can't take these keys, such as a terminal asked for Win+R, or isn't connected), `"failed"` (anything else, including an unknown key name or a bad `repeat`). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
+| `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the keys, as described under [Screenshot after an action](#screenshot-after-an-action). |
 
 Hosts advertise this response in `host.init.capabilities` when the lab
 has a console to press keys in.
@@ -959,9 +961,48 @@ has a console to press keys in.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text still being typed). It says nothing about what the action did; take a screenshot to see. |
+| `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text still being typed). It says nothing about what the action did; ask for `screenshot`, or take a screenshot, to see. |
 | `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot is on a screenshot that no longer matches the console; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+| `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the action, as described under [Screenshot after an action](#screenshot-after-an-action). |
+
+Hosts advertise this response in `host.init.capabilities` when the lab
+has virtual machines.
+
+#### Screenshot after an action
+When `mentor.environmentKeys.request` or `mentor.environmentMouse.request`
+sets `screenshot: true` and the action is taken, the response carries a
+`screenshot` of the console once its screen settles: when it has been
+still for half a second, or after 3 seconds at most. It saves a separate
+`mentor.environmentScreenshot.request` after every step.
+
+| Field      | Type     | Notes |
+|------------|----------|-------|
+| `ok`       | boolean  | `true` iff the host produced image data. |
+| `data_url` | string?  | As in [`host.environmentScreenshot.response`](#hostenvironmentscreenshotresponse), and validated the same way. |
+| `reason`   | string?  | As in `host.environmentScreenshot.response`. `null` on success. |
+| `message`  | string?  | Human-readable detail for `reason`. |
+| `width`    | integer? | The screenshot's width in pixels, when `ok` is `true`. |
+| `height`   | integer? | The screenshot's height in pixels, when `ok` is `true`. |
+
+The host records it like any other screenshot, so spots on it can be
+used in the next request (see [Spots on a screenshot](#spots-on-a-screenshot)).
+The action's own `ok` and `reason` stand whatever happens to the
+screenshot: a failed capture is `screenshot.ok: false`, not a failed
+action.
+
+### `host.environmentWait.response`
+**Optional.** Reply to a prior `mentor.environmentWait.request`.
+
+| Field      | Type     | Notes |
+|------------|----------|-------|
+| `ok`       | boolean  | `true` when the screen did what was asked in time: changed, for `"changes"`, or stopped changing, for `"settles"`. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+| `waitedMs` | number   | How long the host waited, in milliseconds. |
+
+A `"timeout"` isn't an error so much as an answer: the screen stayed as
+it was, or kept moving. Take a screenshot to see where things stand.
 
 Hosts advertise this response in `host.init.capabilities` when the lab
 has virtual machines.
@@ -1057,6 +1098,7 @@ verification model.
 | `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the student has selected. Reply via `host.environmentMouse.response`. |
+| `mentor.environmentWait.request` | Optional | Ask the lab to wait until the screen of the console the student has selected changes, or stops changing. Reply via `host.environmentWait.response`. |
 | `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the student has selected, show a tip over it, or walk the student through a tour of several. Reply via `host.showInEnvironment.response`. |
 | `mentor.message.sent`           | Optional  | Notification: student posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
@@ -1381,6 +1423,7 @@ same console text goes to, wherever its focus is.
 |----------|----------|-------|
 | `keys`   | string   | Key names joined with `+`, such as `Ctrl+Shift+Esc`. Case doesn't matter, and order doesn't either: hosts press modifiers first. At most one key besides Ctrl, Alt, Shift and Win. |
 | `repeat` | integer? | How many times to press the keys, 1 to 20. Defaults to 1. |
+| `screenshot` | boolean? | `true` to get the screen back with the response, once it settles after the keys. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
 
 **Key names:** `Ctrl`, `Alt`, `Shift`, `Win`, `Tab`, `Enter`, `Esc`,
 `Space`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`,
@@ -1420,6 +1463,10 @@ name places on the console by where they are on a screenshot from
   selected console since the page loaded, when the student has switched
   to another console, or when the console's resolution has changed
   since. Take a new screenshot, find the spot on it again, and retry.
+- **Screenshots returned with an action count.** A `screenshot` returned
+  with `host.environmentKeys.response` or `host.environmentMouse.response`
+  (see [Screenshot after an action](#screenshot-after-an-action)) is
+  recorded the same way, and becomes the latest screenshot.
 - **The screen at its own size.** The Skillable lab platform's
   screenshots are the console's screen at the VM's resolution, whatever
   size it's shown at on the page.
@@ -1438,11 +1485,12 @@ web page.
 | `toX`, `toY`       | number?  | Drag only, and required for it: where the drag ends, on the same screenshot. |
 | `direction`        | string?  | Scroll only: `"up"` or `"down"`. Defaults to `"down"`. |
 | `amount`           | integer? | Scroll only: how many wheel notches, 1 to 20. Defaults to 1. |
+| `screenshot`       | boolean? | `true` to get the screen back with the response, once it settles after the action. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
 
-**Look before and after.** Take a screenshot to find the spot, and
-another after the action to see what it did; give the console a moment
-(about a second) first. The response says only whether the action was
-done.
+**Look before and after.** Take a screenshot to find the spot, and look
+again after the action to see what it did: set `screenshot`, or take a
+screenshot after giving the console a moment (about a second). Without
+`screenshot`, the response says only whether the action was done.
 
 **After the text.** Like keys, a mouse action sent right after text
 waits for that text to finish typing.
@@ -1461,6 +1509,30 @@ Consoles with no screen the mouse can reach answer `"not_supported"`:
 terminals (SSH and PowerShell), consoles that aren't connected, and
 consoles the student can only watch at the moment, such as while an
 instructor is monitoring the lab or a dialog covers the console.
+
+### `mentor.environmentWait.request`
+**Optional.** Ask the lab to wait until the screen of the console the
+student has selected changes, or stops changing: for a dialog to open, a
+page to load or an install to finish, rather than pausing for a fixed
+time and looking. The host answers with `host.environmentWait.response`
+as soon as the screen does what was asked, or when time runs out.
+
+| Field            | Type     | Notes |
+|------------------|----------|-------|
+| `until`          | string   | `"changes"`: until the screen visibly changes from how it is when the request arrives. `"settles"`: until it stops changing for `quietSeconds`. |
+| `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 60. Defaults to 10. |
+| `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0 and at most 10. Defaults to 2. |
+
+**What counts as a change.** The host compares a small grayscale
+thumbnail of the screen (about 64 by 40, each pixel the average of the
+block it covers), so a blinking cursor or a ticking clock doesn't count
+as a change, while a window opening or a page loading does. A busy
+progress bar or a playing video keeps the screen changing, so
+`"settles"` waits for it to stop.
+
+Set the iframe-side timeout a little longer than `timeoutSeconds`.
+Consoles with no screen to watch, such as terminals, answer
+`"not_supported"`.
 
 ### `mentor.showInEnvironment.request`
 **Optional.** Ask the lab to bring the student's attention to a spot or

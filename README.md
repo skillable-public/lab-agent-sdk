@@ -83,6 +83,23 @@ To use a Claude deployment in Microsoft Foundry instead, set
 to the resource name, `Mentor:Claude:Foundry:ApiKey` to its key, and
 `Mentor:Claude:Model` to the deployment name.
 
+### Run mode
+
+A lab author can ask the Claude mentor to carry out a long task on its
+own, such as performing the whole lab to check it. The mentor starts a
+run, with a time limit taken from the author's words, or
+`Mentor:Run:DefaultMinutes` (60) when they give none. The chat shows
+the run's goal and time left, and keeps the mentor going turn after turn
+until it reports the task complete or says what blocks it, the time
+runs out, it looks stuck (the same action with the same result, or
+actions that change nothing, several times in a row), or the author
+presses Stop. Each result the mentor gets during a run ends with its
+time left and how full its context is (`Mentor:Claude:ContextTokens`,
+200000 by default). Students are never offered a run.
+
+Run mode is behavior of this sample mentor, not part of the integration
+contract.
+
 ### Session storage
 
 `SessionStore:Provider` picks where mentor sessions, their transcript

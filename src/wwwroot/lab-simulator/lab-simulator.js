@@ -39,6 +39,7 @@
     VIEW_AS_REQUEST:                'mentor.viewAs.request',
     ENVIRONMENT_KEYS_REQUEST:       'mentor.environmentKeys.request',
     ENVIRONMENT_MOUSE_REQUEST:      'mentor.environmentMouse.request',
+    ENVIRONMENT_WAIT_REQUEST:       'mentor.environmentWait.request',
     SHOW_IN_ENVIRONMENT_REQUEST:    'mentor.showInEnvironment.request',
     MESSAGE_SENT:                  'mentor.message.sent',
     MENTOR_RESPONSE:                'mentor.response',
@@ -63,6 +64,7 @@
     VIEW_AS_RESPONSE:               'host.viewAs.response',
     ENVIRONMENT_KEYS_RESPONSE:      'host.environmentKeys.response',
     ENVIRONMENT_MOUSE_RESPONSE:     'host.environmentMouse.response',
+    ENVIRONMENT_WAIT_RESPONSE:      'host.environmentWait.response',
     SHOW_IN_ENVIRONMENT_RESPONSE:   'host.showInEnvironment.response',
     AUTH_REFRESH:                   'host.auth.refresh',
   };
@@ -85,6 +87,7 @@
     OUT.SHOW_IN_INSTRUCTIONS_RESPONSE,
     OUT.ENVIRONMENT_KEYS_RESPONSE,
     OUT.ENVIRONMENT_MOUSE_RESPONSE,
+    OUT.ENVIRONMENT_WAIT_RESPONSE,
     OUT.SHOW_IN_ENVIRONMENT_RESPONSE,
   ];
 
@@ -583,7 +586,10 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
         break;
       }
       case IN.ENVIRONMENT_MOUSE_REQUEST:
-        post(OUT.ENVIRONMENT_MOUSE_RESPONSE, useFakeMouse(msg.payload || {}), msg.id);
+        answerAction(OUT.ENVIRONMENT_MOUSE_RESPONSE, msg, useFakeMouse(msg.payload || {}));
+        break;
+      case IN.ENVIRONMENT_WAIT_REQUEST:
+        waitForFakeScreen(msg.payload || {}, (response) => post(OUT.ENVIRONMENT_WAIT_RESPONSE, response, msg.id));
         break;
       case IN.SHOW_IN_ENVIRONMENT_REQUEST:
         post(OUT.SHOW_IN_ENVIRONMENT_RESPONSE, showFakeEnvironmentMark(msg.payload || {}, msg.id), msg.id);
@@ -661,7 +667,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           break;
         }
         showEnvToast(`[pressed ${keys.trim()}${Number.isInteger(repeat) && repeat > 1 ? ` x${repeat}` : ''}]`);
-        post(OUT.ENVIRONMENT_KEYS_RESPONSE, { ok: true, reason: null, message: null }, msg.id);
+        answerAction(OUT.ENVIRONMENT_KEYS_RESPONSE, msg, { ok: true, reason: null, message: null });
         break;
       }
       case IN.VIEW_AS_REQUEST:
@@ -818,6 +824,74 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     return { ok: true, reason: null, message: null };
   }
 
+  // Answers a keys or mouse request. One that asks for the screen back gets
+  // the simulated capture with its size, recorded like a screenshot request's
+  // so the mentor's next spots are read against it, after a short pause
+  // standing in for a real host waiting for the screen to settle.
+  const ACTION_SETTLE_MS = 500;
+  function answerAction(type, msg, response) {
+    if (msg.payload?.screenshot !== true || !response.ok) {
+      post(type, response, msg.id);
+      return;
+    }
+    setTimeout(() => {
+      const shot = produceFakeScreenshot('environment');
+      if (shot.ok) {
+        screenshotFrame = { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT };
+        Object.assign(shot, { width: ENV_CAPTURE_WIDTH, height: ENV_CAPTURE_HEIGHT });
+      }
+      post(type, { ...response, screenshot: shot }, msg.id);
+    }, ACTION_SETTLE_MS);
+  }
+
+  // --- Waiting on the simulated screen ---------------------------------------
+  //
+  // A real host watches a small thumbnail of the console's screen. The
+  // simulated desktop only changes when something is shown on it (a toast, a
+  // ripple, a mark) or the student clicks it, so those times stand in for
+  // what a real host would see change.
+  let lastScreenChangeAt = 0;
+  function noteScreenChange() {
+    lastScreenChangeAt = Date.now();
+  }
+
+  // An action taken just before the request may still be drawing, so it
+  // counts as the change a "changes" wait is for.
+  const RECENT_CHANGE_MS = 1500;
+  const WAIT_POLL_MS = 200;
+
+  function waitForFakeScreen(p, answer) {
+    const started = Date.now();
+    const respond = (ok, reason, message) => answer({ ok, reason, message, waitedMs: Date.now() - started });
+    const inRange = (value, max) => value === undefined || (typeof value === 'number' && value > 0 && value <= max);
+    if (p.until !== 'changes' && p.until !== 'settles') {
+      respond(false, 'failed', 'until must be "changes" or "settles".');
+      return;
+    }
+    if (!inRange(p.timeoutSeconds, 60) || !inRange(p.quietSeconds, 10)) {
+      respond(false, 'failed', 'timeoutSeconds must be over 0 and at most 60, and quietSeconds over 0 and at most 10.');
+      return;
+    }
+    const timeoutMs = (p.timeoutSeconds ?? 10) * 1000;
+    const quietMs = (p.quietSeconds ?? 2) * 1000;
+    const changedSince = started - (p.until === 'changes' ? RECENT_CHANGE_MS : 0);
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const done = p.until === 'changes'
+        ? lastScreenChangeAt > changedSince
+        : now - Math.max(started, lastScreenChangeAt) >= quietMs;
+      if (done) {
+        clearInterval(timer);
+        respond(true, null, null);
+      } else if (now - started >= timeoutMs) {
+        clearInterval(timer);
+        respond(false, 'timeout', p.until === 'changes'
+          ? `The screen didn't change within ${timeoutMs / 1000} seconds.`
+          : `The screen didn't stop changing within ${timeoutMs / 1000} seconds.`);
+      }
+    }, WAIT_POLL_MS);
+  }
+
   // The tour on screen, if any: { requestId, steps, index }. Its steps are
   // already checked and placed, so moving through them can't fail.
   let envTour = null;
@@ -860,6 +934,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   // Draws a checked mark with its caption. `tour` adds the step count and
   // Back, Next and Done; without it the caption is a single mark's.
   function drawEnvironmentMark({ note, spot, region }, tour) {
+    noteScreenChange();
     $envCanvas.querySelectorAll('.sim-env-mark, .sim-env-tip').forEach((el) => el.remove());
     const caption = document.createElement('div');
     caption.className = 'sim-env-tip';
@@ -961,6 +1036,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   // The student using the console clears a single mark, as on a real host.
   // A tour stays, since its steps often ask them to click something.
   $envCanvas.addEventListener('pointerdown', (e) => {
+    noteScreenChange();
     if (!envTour && !e.target.closest('.sim-env-tip')) clearEnvironmentMark();
   });
 
@@ -1229,6 +1305,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     post(OUT.CONTEXT_UPDATE, { context: currentContext() });
   }
   function showEnvToast(text) {
+    noteScreenChange();
     $envToastBody.textContent = text;
     $envToast.hidden = false;
     $envCanvas.classList.remove('is-flash');
