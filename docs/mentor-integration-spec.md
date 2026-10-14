@@ -645,7 +645,11 @@ Your iframe, after resolving the session:
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
-iframe receives nothing, carry on with defaults.
+iframe receives nothing, carry on with defaults. A host may hold it for
+several seconds while its environment connects (the Skillable lab
+platform waits up to 10), so wait at least that long before starting a
+session without it: a session started early misses the `sessionId` the
+host would have resumed.
 
 | Field            | Type                           | Notes |
 |------------------|--------------------------------|-------|
