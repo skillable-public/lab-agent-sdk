@@ -1462,8 +1462,14 @@ clicks and keys go through it to the VM. It goes when the student uses
 the mouse, keyboard or touch in the console, closes the caption, or
 follows its link back to the mentor, and when the console changes:
 another console is selected, it disconnects, or its resolution changes.
-A new request replaces the previous mark. While the spot is scrolled
-out of view, the mark hides.
+While the spot is scrolled out of view, the mark hides.
+
+**One mark at a time.** A new request replaces the mark on screen at
+once, so a mark replaced right after it appears is barely seen. Pace
+them: show one, let the student act on it, then show the next, rather
+than sending a walk-through as a run of marks. Hosts label the caption
+(the Skillable lab platform as a pointer or a tip from the mentor), so
+the note needn't start with "Tip:".
 
 ### `mentor.viewAs.request`
 **Optional.** Ask the lab to treat a lab author as a student for
