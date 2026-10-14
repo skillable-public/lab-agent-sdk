@@ -450,7 +450,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     // URL parameters — they travel through postMessage (host.init ->
     // mentor.session.opened) per the integration spec.
     const base = new URL(MENTOR_URL, window.location.href);
-    base.searchParams.set('theme', currentIframeTheme());
+    base.searchParams.set('theme', currentThemePayload().theme);
     return base.toString();
   }
   function ensureMentorLoaded() {
