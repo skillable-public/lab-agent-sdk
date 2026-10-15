@@ -112,14 +112,17 @@ cached history stays the same from then on. This applies in chat and in
 runs alike.
 
 The mentor can batch console actions that don't depend on seeing each
-result, such as filling in a form (click a field, type, Tab, type), in
-one reply, which saves a model turn per action. The chat runs them in
+result, such as filling in a form (click a field, then type, Tab, type,
+Enter), in one reply, which saves a model turn per action. The chat runs them in
 order, and only the last one brings the screen back, though each still
 waits as its `then` asks. The first action that fails, or whose wait for
 the screen to change times out (a click that didn't land), stops the
 batch: every call after it in the reply is skipped, whatever its tool,
 and the mentor gets the screen as it stands. A batch holds at most 8
-console actions; a 9th stops the batch the same way.
+console actions; a 9th stops the batch the same way. A click can only
+open a batch, never follow another action in it, since it is aimed at a
+screenshot the earlier actions may have changed: a click after another
+console action stops the batch the same way.
 
 ### Run mode
 
