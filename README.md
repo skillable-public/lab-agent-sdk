@@ -83,6 +83,21 @@ To use a Claude deployment in Microsoft Foundry instead, set
 to the resource name, `Mentor:Claude:Foundry:ApiKey` to its key, and
 `Mentor:Claude:Model` to the deployment name.
 
+Each request resends the whole conversation, so the Claude mentor caches
+its tools, system prompt and history (prompt caching works on both
+providers), leaving out only the newest screenshot. So that the system
+prompt and tools stay the same all session, where the learner is (the
+instructions page, its text, the selected VM) and whether a run is going
+are told in notes on the conversation each time they change. Cache entries last
+five minutes in chat and an hour during a run
+(`Mentor:Claude:RunCacheTtl`, `1h` or `5m`). The oldest part of a long
+conversation is summarized in one step, once it passes
+`Mentor:Claude:SummarizeAtContextShare` (0.9) of the model's context or
+of `SessionStore:MaxConversationBytes` (1.5 MB, which keeps it within a
+Cosmos DB item), down to `SummarizeToContextShare` (0.75), so the cached
+history is rewritten only then. Each call logs its cache
+reads and writes, from which a run's cost can be worked out.
+
 ### Run mode
 
 A lab author can ask the Claude mentor to carry out a long task on its
