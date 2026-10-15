@@ -98,6 +98,23 @@ Cosmos DB item), down to `SummarizeToContextShare` (0.75), so the cached
 history is rewritten only then. Each call logs its cache
 reads and writes, from which a run's cost can be worked out.
 
+Command output stays in the conversation and is resent with every
+request, unlike a screenshot, so the chat sends only the first and last
+2,000 characters of a command's output, with a line saying how many were
+left out in between. Once the mentor has seen it, the next save cuts it
+to the first and last 500. A cut result is never cut again, so the
+cached history stays the same from then on. This applies in chat and in
+runs alike.
+
+The mentor can batch console actions that don't depend on seeing each
+result, such as filling in a form (click a field, type, Tab, type), in
+one reply, which saves a model turn per action. The chat runs them in
+order, and only the last one waits for the screen and brings it back.
+The first action that fails, or whose wait for the screen to change
+times out (a click that didn't land), skips the rest, and the mentor
+gets the screen as it stands. A batch holds at most 8 console actions;
+the chat skips any more.
+
 ### Run mode
 
 A lab author can ask the Claude mentor to carry out a long task on its
@@ -111,6 +128,23 @@ actions that change nothing, several times in a row), or the author
 presses Stop. Each result the mentor gets during a run ends with its
 time left and how full its context is (`Mentor:Claude:ContextTokens`,
 1000000 by default, the full window of Claude Opus 5.5). Students are never offered a run.
+
+During a run the mentor's text between actions is one short line, or
+none; the summary it ends the run with is written out in full.
+
+A run is a **walkthrough**, by default, or a **shortcut** run, which the
+mentor starts when the author asks for one (for example "do a shortcut
+run of this lab"). A walkthrough follows the instructions as written,
+which tests the instructions. A shortcut run tests the environment
+instead: the mentor reads the instructions, posts a list of checkpoints
+(the end state each section produces, such as a resource group in a
+region or a VM running with a port open), and reaches each by the
+fastest path, preferring a command line to clicking through a portal.
+It builds the real thing rather than making a check pass, proves each
+checkpoint with command output or a screenshot, and ends with one line
+per checkpoint: pass or fail, the evidence, and what blocked a failure.
+The banner says when a run is a shortcut run, and a run picked up again
+keeps its mode.
 
 Run mode is behavior of this sample mentor, not part of the integration
 contract.

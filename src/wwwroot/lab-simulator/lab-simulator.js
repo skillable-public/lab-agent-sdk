@@ -72,6 +72,7 @@
   // Sandbox-fixed identity for the simulated student. In a real lab
   // platform this comes from the authenticated user's session.
   const SANDBOX_USER_ID = 'u-john-doe';
+  const SANDBOX_USER_ROLE = 'student';
 
   // Response message types we advertise to the iframe via
   // host.init.capabilities. Per the spec, this is specifically for
@@ -486,7 +487,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
       const res = await fetch('/api/lab/launch-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, labInstanceId }),
+        body: JSON.stringify({ userId, labInstanceId, role: SANDBOX_USER_ROLE }),
       });
       if (!res.ok) {
         log('host', 'launch-token mint failed', { status: res.status });
@@ -550,7 +551,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
           sessionId: getStoredSessionId(labInstanceId),
           userName: 'John Doe',
           userId: SANDBOX_USER_ID,
-          userRole: 'student',
+          userRole: SANDBOX_USER_ROLE,
           userOrganizationId: 'org-acme',
           userOrganizationName: 'Acme',
           ...currentThemePayload(),
