@@ -42,7 +42,7 @@ contract defined in this document.
   (theme, user identity hints).
 - Sends lab context to your iframe: which lab, which instructions page
   the student is on, facts about the environment (OS, shell, cwd, etc.).
-- Honors your requests to paste text into the lab environment and
+- Honors your requests to type text into the lab environment and
   navigate to specific instructions pages — if it supports them.
 - Cleans up the iframe when the lab session ends.
 
@@ -1125,7 +1125,7 @@ verification model.
 | `mentor.ready`                  | Required  | Announce iframe is loaded and listening. |
 | `mentor.session.opened`          | Optional  | Announce the active mentor sessionId for this iframe load. |
 | `mentor.gotoInstructionsPage`   | Optional  | Ask the lab to navigate to a specific instructions page. |
-| `mentor.sendTextToEnvironment`  | Optional  | Ask the lab to paste text into the lab environment. |
+| `mentor.sendTextToEnvironment`  | Optional  | Ask the lab to type text into the lab environment. |
 | `mentor.environmentScreenshot.request` | Optional | Ask the lab for a screenshot of the lab environment. Reply via `host.environmentScreenshot.response`. |
 | `mentor.labClientScreenshot.request` | Optional | Ask the lab for a screenshot of the entire lab-client UI. Reply via `host.labClientScreenshot.response`. |
 | `mentor.environmentConnectionQuality.request` | Optional | Ask the lab for the environment connection quality. Reply via `host.environmentConnectionQuality.response`. |
@@ -1197,24 +1197,28 @@ assume) any DOM selectors inside the instructions content.
 | `index`  | integer  | **Zero-based** target page index (same frame of reference as `LabContext.currentPageIndex`). Out-of-range values are ignored. |
 
 ### `mentor.sendTextToEnvironment`
-**Optional.** Ask the lab to paste text into the active lab
+**Optional.** Ask the lab to type text into the active lab
 environment. This is the canonical mentor-driven side effect (e.g.,
-"I'll paste that command for you"). The lab decides where the text goes
+"I'll type that command for you"). The lab decides where the text goes
 (the focused input, the active terminal, etc.); your iframe does not
 select a target.
 
+The Skillable lab platform types the text as key presses, not through
+the clipboard. It queues behind input sent before it, and never
+replaces text still going out.
+
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `text`    | string   | Text to paste. |
+| `text`    | string   | Text to type. |
 
 **Security note.** Skillable is ultimately responsible for what reaches
 the environment. Assume the lab will not auto-execute your text but
-will paste it for the student to review. Do not use this channel to
+will type it for the student to review. Do not use this channel to
 attempt to escape the lab.
 
 Iframes SHOULD require explicit user action before posting
 `mentor.sendTextToEnvironment` — render a button, "Insert" affordance,
-or preview-and-confirm step rather than pasting straight from an LLM
+or preview-and-confirm step rather than typing straight from an LLM
 response. Hostile lab content (see
 [Section 3.7](#37-host-content-is-untrusted-input)) that successfully
 prompt-injects your model can otherwise turn this channel into
@@ -1536,7 +1540,7 @@ web page.
 
 | Field              | Type     | Notes |
 |--------------------|----------|-------|
-| `action`           | string   | `"move"`, `"click"`, `"double_click"`, `"right_click"`, `"drag"` or `"scroll"`. |
+| `action`           | string   | `"move"`, `"click"`, `"double_click"`, `"triple_click"`, `"right_click"`, `"drag"` or `"scroll"`. |
 | `x`, `y`           | number   | Where, in pixels on the screenshot. For a drag, where it starts. See [Spots on a screenshot](#spots-on-a-screenshot). |
 | `screenshotWidth`, `screenshotHeight` | integer | The size in pixels of the screenshot `x` and `y` are on. |
 | `toX`, `toY`       | number?  | Drag only, and required for it: where the drag ends, on the same screenshot. |
@@ -1556,8 +1560,8 @@ in the order the requests arrive, with the same rules for input dropped
 before it goes out.
 
 **The student sees it.** The Skillable lab platform shows a ripple on
-the console where the mentor clicks: two for a double-click, and one at
-each end of a drag.
+the console where the mentor clicks: two for a double-click, three for
+a triple-click, and one at each end of a drag.
 
 **Keys first.** Where a key or shortcut does the job, prefer
 `mentor.environmentKeys.request`: it doesn't depend on where things are
@@ -1776,7 +1780,7 @@ an action failed, etc.). Skillable may render a toast or just log it.
 ## 9. Suggesting actions in-chat
 
 When your mentor produces a message that includes a suggested side
-effect (e.g. "Paste this command into your terminal" or "Jump back to
+effect (e.g. "Type this command into your terminal" or "Jump back to
 the first page"), the recommended pattern is:
 
 1. Render the message plus one or more buttons for the suggested

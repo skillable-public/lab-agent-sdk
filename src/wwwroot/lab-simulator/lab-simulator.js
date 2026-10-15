@@ -767,7 +767,7 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
   // on a real host.
   const ENV_CAPTURE_WIDTH = 800;
   const ENV_CAPTURE_HEIGHT = 480;
-  const MOUSE_ACTIONS = ['move', 'click', 'double_click', 'right_click', 'drag', 'scroll'];
+  const MOUSE_ACTIONS = ['move', 'click', 'double_click', 'triple_click', 'right_click', 'drag', 'scroll'];
   let screenshotFrame = null;
 
   const isWithin = (value, limit) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= limit;
@@ -823,7 +823,8 @@ Feel free to ask the mentor any lingering questions before closing the lab.`,
     }
     if (!envTour) clearEnvironmentMark();
     if (p.action !== 'move' && p.action !== 'scroll') rippleAt(from.fx, from.fy);
-    if (p.action === 'double_click') rippleAt(from.fx, from.fy, 150);
+    if (p.action === 'double_click' || p.action === 'triple_click') rippleAt(from.fx, from.fy, 150);
+    if (p.action === 'triple_click') rippleAt(from.fx, from.fy, 300);
     if (to) rippleAt(to.fx, to.fy, 300);
     const where = `${Math.round(p.x)},${Math.round(p.y)}`;
     showEnvToast(p.action === 'scroll'
