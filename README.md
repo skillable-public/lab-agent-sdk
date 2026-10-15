@@ -94,7 +94,9 @@ are told in notes on the conversation each time they change, so that the
 system prompt and tools change only when the user's view or what the mentor
 may do changes. Cache entries last
 five minutes in chat and an hour during a lab author's run
-(`Mentor:Claude:RunCacheTtl`, `1h` or `5m`). The oldest part of a long
+(`Mentor:Claude:RunCacheTtl`, `1h` or `5m`), except while the author is
+in student view, where the run's entries last five minutes as a
+student's do. The oldest part of a long
 conversation is summarized in one step, once it passes
 `Mentor:Claude:SummarizeAtContextShare` (0.9) of the model's context or
 of `SessionStore:MaxConversationBytes` (1.5 MB, which keeps it within a
@@ -196,9 +198,14 @@ how something is done, a step or two past an obstacle, or undoing a mess
 to restore a clean starting point, and then hands back. For that it may
 start a walkthrough run on a learner's behalf, so a student's mentor is
 offered `start_run` with walkthrough as its only mode. A student's run
-goes on for at most `Mentor:Run:DefaultMinutes`: the backend records
-when each run starts, and past that it drops the run state the chat
-sends and refuses to continue the run with 403.
+goes on for at most `Mentor:Run:DefaultMinutes` at a stretch: the
+backend records when each run starts or is resumed, and stops the clock
+when the chat records that the run ended or paused, so a pause doesn't
+count and Resume starts the clock again. Past the limit it refuses to
+continue the run with 403, and drops the run state the chat sends with a
+message or tool results, so the mentor is told the run is over. A run
+that already ended, which the chat reports for the mentor to judge
+whether to pick it up, is passed on whatever its age.
 
 Shortcut runs are for lab authors only. The chat refuses a shortcut
 `start_run`, or picking up a shortcut run, for anyone who isn't the

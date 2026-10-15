@@ -1071,7 +1071,7 @@ console now shown; a wait that already finished keeps its outcome.
 Because of that wait, set the
 iframe-side timeout for a request with `screenshot` or `waitUntil` to
 30 seconds plus `timeoutSeconds`, plus about 0.3 seconds per character
-of text sent just before it and 10 seconds for each text or paste
+of text sent just before it, a margin over the typing rate, and 10 seconds for each text or paste
 queued ahead of it, so queued text doesn't time you out first.
 
 | Field      | Type     | Notes |
@@ -1264,9 +1264,9 @@ select a target.
 
 On Spark consoles, the Skillable lab platform types text of up to 200
 characters as key presses, about ten a second. Longer text, which would
-take minutes to type, goes in as a clipboard paste where the console
-shares the clipboard with the student, and as key presses where it
-doesn't. Either way it queues behind input sent before it, the input
+take a long time to type, goes in as a clipboard paste, with its line
+breaks as CRLF, where the console shares the clipboard with the student,
+and as key presses where it doesn't. Either way it queues behind input sent before it, the input
 sent after it waits for it, and it never replaces, and is never
 replaced by, other input. Other consoles take it the way they take
 typed text today.
