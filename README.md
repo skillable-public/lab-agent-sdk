@@ -115,11 +115,16 @@ The mentor can batch console actions that don't depend on seeing each
 result, such as filling in a form (click a field, then type, Tab, type,
 Enter), in one reply, which saves a model turn per action. The chat runs them in
 order, and only the last one brings the screen back, though each still
-waits as its `then` asks. An action with no `then` of its own that
-isn't the last gets a short settle instead (until the screen has been
-still for half a second, at most 5 seconds) before the next one goes,
-so typing doesn't race a search box that is still opening; a screen
-still moving at the end of it doesn't stop the batch. The first action that fails, or whose wait for
+waits as its `then` asks. A key press or click with no `then` of its
+own that isn't the last instead waits up to 2 seconds for the screen to
+visibly change, measured from just before it went out, before the next
+one goes, so typing doesn't race a Start menu that is still opening; as
+some keys, such as Tab, change little or nothing visible, that wait
+timing out doesn't stop the batch. Typed text (`type_text` or
+`type_credential`) that isn't the last has no `then`, so it is followed
+by a wait of up to 5 seconds for the screen to settle (1 second
+unchanged), so Enter doesn't race Start search results; that wait
+timing out or failing doesn't stop the batch either. The first action that fails, or whose `then` wait for
 the screen to change times out (a click that didn't land), stops the
 batch: every call after it in the reply is skipped, whatever its tool,
 and the mentor gets the screen as it stands. A batch holds at most 8
