@@ -1683,16 +1683,18 @@ progress bar or a playing video keeps the screen changing, so
 `"settles"` waits for it to stop.
 
 **Regions.** With `region`, the wait considers only that part of the
-screen, such as a Next button turning active or a progress area, and
-ignores changes elsewhere. The region is checked and scaled like a
-region `mentor.showInEnvironment.request` outlines: one off the
-screenshot answers `"failed"`, and one on a screenshot that no longer
-matches the console answers `"stale"` (see
-[Spots on a screenshot](#spots-on-a-screenshot)). It is sampled finer
-than the whole screen, and counts as changed once about 5% of it has.
-The mouse pointer moving into a small region, or a control in it
-lighting up on hover, can be that much, so after a click watch a region
-away from the spot clicked.
+screen, such as a Next button turning active, a progress area or a text
+area being typed in, and ignores changes elsewhere. The region is
+checked and scaled like a region `mentor.showInEnvironment.request`
+outlines: one off the screenshot answers `"failed"`, and one on a
+screenshot that no longer matches the console answers `"stale"` (see
+[Spots on a screenshot](#spots-on-a-screenshot)), except that the
+student using the console doesn't make it stale, since that is often
+what the wait is for. It is compared in more detail than the whole
+screen, and counts as changed once a small patch of it does, however
+large the region: a word typed counts, a blinking text cursor doesn't.
+A control in it lighting up on hover counts too, so after a click watch
+a region away from the spot clicked.
 A wait on a region until it changes measures from the latest
 screenshot's copy of the region.
 
