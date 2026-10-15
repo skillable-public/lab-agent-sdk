@@ -1262,10 +1262,14 @@ environment. This is the canonical mentor-driven side effect (e.g.,
 (the focused input, the active terminal, etc.); your iframe does not
 select a target.
 
-On Spark consoles, the Skillable lab platform types the text as key
-presses, not through the clipboard. It queues behind input sent before
-it, and never replaces text still going out. Other consoles take it the
-way they take typed text today.
+On Spark consoles, the Skillable lab platform types text of up to 200
+characters as key presses, about ten a second. Longer text, which would
+take minutes to type, goes in as a clipboard paste where the console
+shares the clipboard with the student, and as key presses where it
+doesn't. Either way it queues behind input sent before it, the input
+sent after it waits for it, and it never replaces, and is never
+replaced by, other input. Other consoles take it the way they take
+typed text today.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
@@ -1443,8 +1447,10 @@ send it when `host.environmentCommand.response` is present in
 ### `mentor.environmentTypeCredential.request`
 **Optional.** Ask the lab to type one of the lab's credentials, a user
 name or a password, into the console the student currently has
-selected. The host types it the same way it types
-`mentor.sendTextToEnvironment` text, then presses Enter if asked. The
+selected. The host types it the way it types
+`mentor.sendTextToEnvironment` text, except that a credential always
+goes as key presses, never through the clipboard, whatever its length,
+then presses Enter if asked. The
 iframe names which credential it wants; the host looks up the value and
 types it, so the value never reaches the iframe, the mentor's backend
 or its model.
