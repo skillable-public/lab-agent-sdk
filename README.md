@@ -95,7 +95,7 @@ runs out, it looks stuck (the same action with the same result, or
 actions that change nothing, several times in a row), or the author
 presses Stop. Each result the mentor gets during a run ends with its
 time left and how full its context is (`Mentor:Claude:ContextTokens`,
-200000 by default). Students are never offered a run.
+1000000 by default, the full window of Claude Opus 5.5). Students are never offered a run.
 
 Run mode is behavior of this sample mentor, not part of the integration
 contract.
