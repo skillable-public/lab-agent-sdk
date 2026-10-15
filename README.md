@@ -154,6 +154,23 @@ it is aimed at a screenshot the earlier actions may have changed. If any
 rule is broken, none of the reply's calls run: each gets an error naming
 every problem, so the mentor can fix the whole batch in one go.
 
+### Guided walkthroughs
+
+The Claude mentor can guide a learner through steps they do themselves
+without asking them to report each one in chat. For each step it points
+at the instruction, marks the control on the console with a Done button
+(or shows a tour), then calls `wait_for_learner`, which stays pending in
+the chat until the learner clicks Done, moves through the tour, ticks a
+task, or a check command the mentor gave starts passing (run every few
+seconds, like `run_command`), up to a timeout. The chat shows what it is
+waiting for. The mentor then confirms the step, checks off its task and
+moves on. A message the learner writes ends the wait and goes to the
+mentor in its place, and Stop cancels it. A mark ending or a task ticked
+while no wait listens reaches the mentor as a short note on its next
+turn. This is behavior of this sample mentor, built on the contract's
+`host.environmentMark.ended`, `host.environmentTour.step` and
+`host.task.changed` messages.
+
 ### Run mode
 
 A lab author can ask the Claude mentor to carry out a long task on its

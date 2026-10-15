@@ -632,6 +632,9 @@ Your iframe, after resolving the session:
 | `host.locale.change`                 | Optional  | Locale switched at runtime. |
 | `host.send.message`                  | Optional  | Inject a user-authored message on the student's behalf. |
 | `host.environmentTour.ended`         | Optional  | A tour the mentor showed over the console has ended: finished, closed, or replaced. |
+| `host.environmentTour.step`          | Optional  | A tour the mentor showed opened, or the student moved to another step. |
+| `host.environmentMark.ended`         | Optional  | A single mark the mentor showed over the console has ended, and how. |
+| `host.task.changed`                  | Optional  | The student ticked or unticked a task in the instructions. |
 | `host.environmentScreenshot.response`| Optional  | Reply to `mentor.environmentScreenshot.request` with image data or a failure reason. |
 | `host.labClientScreenshot.response`  | Optional  | Reply to `mentor.labClientScreenshot.request` with image data or a failure reason. |
 | `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
@@ -669,7 +672,7 @@ host would have resumed.
 | `textColor`      | string?                        | The lab theme's text color for that mode, as a CSS color. Absent when the host has none. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
-| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.environmentTour.ended`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
+| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.environmentTour.ended`, `host.environmentTour.step`, `host.environmentMark.ended`, `host.task.changed`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -731,7 +734,7 @@ envelope `id` of its own. See [Tours](#tours).
 |-------------|----------|-------|
 | `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that started the tour. `null` when the host doesn't have it. |
 | `completed` | boolean  | `true` only when the student pressed Done on the last step. |
-| `reason`    | string   | Why it ended: `"done"` (Done on the last step), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed). Receivers must tolerate unknown values. |
+| `reason`    | string   | Why it ended: `"done"` (Done on the last step), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down). Receivers must tolerate unknown values. |
 | `step`      | integer  | The step on screen when it ended, from 1. |
 | `steps`     | integer  | How many steps the tour had. |
 
@@ -739,6 +742,53 @@ A mentor might pick the conversation up when the student finishes
 (`"done"`), offer to show the tour again after `"console_changed"`, once
 a new screenshot shows where things are now, say nothing for
 `"closed"`, and ignore `"replaced"`, which its own request caused.
+
+### `host.environmentTour.step`
+**Optional.** Tells the mentor which step of its tour the student is
+on: once when the tour opens, then each time they move with Next or
+Back. With no envelope `id` of its own. The first can arrive before the
+`host.showInEnvironment.response` that starts the tour. See
+[Tours](#tours).
+
+| Field       | Type     | Notes |
+|-------------|----------|-------|
+| `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that started the tour. `null` when the host doesn't have it. |
+| `step`      | integer  | The step now on screen, from 1. |
+| `steps`     | integer  | How many steps the tour has. |
+
+A mentor can follow the student through a tour with these, such as to
+watch the console for what each step asks of them.
+
+### `host.environmentMark.ended`
+**Optional.** Tells the mentor that a single mark it showed with
+`mentor.showInEnvironment.request` (without `steps`) has ended. Sent
+once per mark, however it ends, with no envelope `id` of its own.
+
+| Field       | Type     | Notes |
+|-------------|----------|-------|
+| `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that showed the mark. `null` when the host doesn't have it. |
+| `reason`    | string   | Why it ended: `"done"` (the student clicked its Done button), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down), `"student_input"` (the student used the console, only for a mark without `done`). Receivers must tolerate unknown values. |
+
+For a mark with `done`, this is how the mentor hears that the student
+has done what it asked: `"done"` says they clicked Done, which a mentor
+should confirm by looking, or with a background command, before going
+on. Ignore `"replaced"`, which the mentor's own request caused.
+
+### `host.task.changed`
+**Optional.** Tells the mentor that the student ticked or unticked a
+task in the instructions, once the lab's task rules have settled it.
+Not sent for a task the mentor checked with
+`mentor.checkTask.request`, and only after `mentor.ready`. With no
+envelope `id` of its own.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `text`    | string   | The task's own line as the page reads it, without any tasks nested under it. |
+| `checked` | boolean  | `true` when the task is now ticked. |
+| `page`    | integer  | **Zero-based** index of the page the task is on. |
+
+A mentor guiding the student through tasks they tick themselves can
+take a tick as the cue to confirm that step and move on.
 
 ### `host.environmentScreenshot.response`
 **Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
@@ -1523,6 +1573,11 @@ name places on the console by where they are on a screenshot from
   selected console since the page loaded, when the student has switched
   to another console, or when the console's resolution has changed
   since. Take a new screenshot, find the spot on it again, and retry.
+- **Before the student's input.** A spot also answers `"stale"` once
+  the student has used the console (mouse, keyboard or touch) since
+  the screenshot, since what they did may have moved what the spot
+  pointed at. The `message` is "The student has used the console since
+  your screenshot. Take a new one and find the spot on it."
 - **Screenshots returned with an action count.** A `screenshot` returned
   with `host.environmentKeys.response` or `host.environmentMouse.response`
   (see [Screenshot after an action](#screenshot-after-an-action)) is
@@ -1617,6 +1672,7 @@ caption, with a way back to the mentor.
 | `screenshotWidth`, `screenshotHeight` | integer? | Required with `x` and `y`, or when any step has a spot: the size in pixels of the screenshot they're on. |
 | `width`, `height`  | number?  | The size of a region to outline, on the same screenshot. Both or neither, and only with `x` and `y`. |
 | `steps`            | object[]? | A tour: 1 to 10 marks, each `{ note?, x?, y?, width?, height? }` with the same rules as a single mark, all on the same screenshot. With `steps`, leave out the top-level `note`, `x`, `y`, `width` and `height`. See [Tours](#tours). |
+| `done`             | boolean? | A single mark only: `true` gives the caption a Done button and keeps the mark up while the student uses the console. See [Marks with Done](#marks-with-done). Ignored with `steps`, since a tour has its own. Defaults to `false`. |
 
 **Three shapes.** With `x` and `y`, the lab marks the spot and hangs the
 caption from it. With `width` and `height` as well, it outlines the
@@ -1632,7 +1688,25 @@ when the console changes: another console is selected, it disconnects,
 or its resolution changes. Following the caption's link back to the
 mentor only opens the mentor: the console stays in view beside it, so
 the mark stays up.
-While the spot is scrolled out of view, the mark hides.
+While the spot is scrolled out of view, the mark hides. The host sends
+[`host.environmentMark.ended`](#hostenvironmentmarkended) when a single
+mark ends, however it ends.
+
+#### Marks with Done
+With `done`, a single mark asks the student to do something and say
+when they have, without a round trip through the chat:
+
+- **It stays while the student works.** Like a tour, it doesn't go
+  when the student uses the console. It ends when they click Done or
+  close the caption, when the mentor shows another mark or tour, when
+  the console changes, and when the lab takes it down.
+- **The mentor hears how it ended.** `host.environmentMark.ended`
+  carries `"done"` when the student clicked Done. Confirm the step
+  before going on: Done says the student thinks they're finished, not
+  that they are.
+- **Look again before the next mark.** The student's clicks make the
+  screenshot stale (see [Spots on a screenshot](#spots-on-a-screenshot)),
+  so take a new one before marking the next spot.
 
 #### Tours
 With `steps`, the lab shows a tour: one step at a time in the same
@@ -1658,6 +1732,9 @@ the one screenshot whose size is the top-level `screenshotWidth` and
 - **The mentor hears how it ended.** The host sends
   [`host.environmentTour.ended`](#hostenvironmenttourended) when a tour
   ends, however it ends.
+- **And which step the student is on.** The host sends
+  [`host.environmentTour.step`](#hostenvironmenttourstep) as the tour
+  opens and each time the student moves with Next or Back.
 
 **One mark at a time.** A new request replaces the mark or tour on
 screen at once, so a mark replaced right after it appears is barely
@@ -1666,10 +1743,11 @@ seen. A mentor has three ways to show more than one thing:
 - **One mark** for one thing: a spot, a region or a tip.
 - **A tour** to walk the student through several things on the same
   screen, in order. They step through it with Next at their own pace.
-- **Separate marks across turns** when the next step depends on what
-  the student does first, such as a dialog that only opens after a
-  click: show one, let the student act on it, take a new screenshot,
-  then show the next. Don't send a run of single marks back to back.
+- **Separate marks one after another** when the next step depends on
+  what the student does first, such as a dialog that only opens after
+  a click: show one, with `done` to hear when the student has acted on
+  it, take a new screenshot, then show the next. Don't send a run of
+  single marks back to back.
 
 Hosts label the caption (the Skillable lab platform as a pointer or a
 tip from the mentor), so the note needn't start with "Tip:".
@@ -1748,7 +1826,9 @@ rules apply, such as tasks having to be completed in order.
 | `checked` | boolean? | `false` to uncheck the task. Defaults to `true`. |
 
 Check a task only once you have confirmed it is done, for example from a
-screenshot or a background command, whoever did the work. Hosts refuse
+screenshot or a background command, whoever did the work. A task the
+mentor checks this way sends no `host.task.changed`; one the student
+ticks does. Hosts refuse
 rather than guess: a quote matching several tasks is `"ambiguous"`, and
 in a lab that requires tasks in order, a task with unchecked ones before
 it is refused, so check tasks in order.
