@@ -145,18 +145,29 @@ timing out doesn't stop the batch. Typed text (`type_text` or
 (`type_credential` never has one) is followed by a wait of up to 5
 seconds for the screen to settle (1 second unchanged), so Enter doesn't
 race Start search results; that wait timing out or failing doesn't stop
-the batch either. The first action that fails, or a `press_keys` or
+the batch either. Several mouse actions can share a batch when their
+targets all show on the latest screenshot and stay put, such as cards in
+a grid, a row of tabs or several checkboxes. Every `use_mouse` after the
+batch's first action goes with `checkTarget: true`, so the Lab Client
+refuses it as stale, sending nothing, when the screen around its spot has
+changed since that screenshot. The first action that fails or is refused
+as stale, or a `press_keys` or
 `use_mouse` whose `then` wait for the screen to change times out (a
 click that didn't land), stops the batch: every call after it in the reply is skipped, whatever its tool,
 and the mentor gets the screen as it stands. Before anything runs, the
 chat checks every console action in the reply against rules it can see
 up front: a `use_mouse` action the tool's schema offers, the fields each
 action needs (`x` and `y`, `to_x` and `to_y` for a drag, `keys`, `text`),
-at most 8 console actions, and a mouse action of any kind only as the
-first of them, since it is aimed at a screenshot the earlier actions may
-have changed. If any
+a `then_region` only with a `then`, and at most 8 console actions. If any
 rule is broken, none of the reply's calls run: each gets an error naming
 every problem, so the mentor can fix the whole batch in one go.
+
+`wait_until` takes an optional `region` (`x`, `y`, `width` and `height`
+in the latest screenshot's pixels), and `press_keys`, `use_mouse` and
+`type_text` take `then_region` for their `then`, to watch only that part
+of the screen, such as a button turning active or a progress area, and
+ignore changes elsewhere. The chat adds the screenshot's size, as it does
+for marks. A region on a screenshot that no longer counts answers stale.
 
 ### Guided walkthroughs
 

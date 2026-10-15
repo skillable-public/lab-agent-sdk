@@ -1007,7 +1007,7 @@ fulfilled `id`.
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the host pressed the keys (or queued them behind text or earlier input still going out). It says nothing about what they did; ask for `screenshot`, or take a screenshot, to see. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_available"` (nothing is selected to press keys in), `"not_supported"` (the selected console can't take these keys, such as a terminal asked for Win+R, or isn't connected), `"failed"` (anything else, including an unknown key name or a bad `repeat`). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (`waitUntil` has a `region` on a screenshot that no longer matches the console; no keys are pressed), `"not_available"` (nothing is selected to press keys in), `"not_supported"` (the selected console can't take these keys, such as a terminal asked for Win+R, or isn't connected), `"failed"` (anything else, including an unknown key name or a bad `repeat`). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the keys, as described under [Screenshot after an action](#screenshot-after-an-action). |
 | `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
@@ -1021,7 +1021,7 @@ has a console to press keys in.
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text or earlier input still going out). It says nothing about what the action did; ask for `screenshot`, or take a screenshot, to see. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot is on a screenshot that no longer matches the console; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot, or a `waitUntil` region, is on a screenshot that no longer matches the console, see [Spots on a screenshot](#spots-on-a-screenshot), or, with `checkTarget`, the screen around the spot has changed since it; nothing is sent), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the action, as described under [Screenshot after an action](#screenshot-after-an-action). |
 | `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
@@ -1040,12 +1040,14 @@ Half a second of stillness can come before a slow app has reacted, such
 as a course that takes several seconds to move to its next page. For
 those, the request can say what to wait for with `waitUntil`, an object
 with the fields of [`mentor.environmentWait.request`](#mentorenvironmentwaitrequest):
-`until` (`"changes"` or `"settles"`), `timeoutSeconds` and `quietSeconds`.
+`until` (`"changes"` or `"settles"`), `timeoutSeconds`, `quietSeconds`
+and `region`.
 The host takes the action, waits for that, and only then captures the
 screen. A wait until the screen changes also lets the change settle for
 half a second, so the screenshot isn't caught mid-transition. A bad
-`waitUntil` refuses the whole request with `"failed"`, before the action
-is taken. The response's `waited` says how the wait went, with the fields
+`waitUntil` refuses the whole request with `"failed"`, and a `region` on
+a screenshot that no longer counts with `"stale"`, before the action is
+taken. The response's `waited` says how the wait went, with the fields
 of [`host.environmentWait.response`](#hostenvironmentwaitresponse):
 `ok`, `reason` (such as `"timeout"`), `message`, `waitedMs` and, for
 `"changes"`, `measuredFrom`. A wait that times out still returns the
@@ -1095,7 +1097,7 @@ failed action.
 | Field      | Type     | Notes |
 |------------|----------|-------|
 | `ok`       | boolean  | `true` when the screen did what was asked in time: changed, for `"changes"`, or stopped changing, for `"settles"`. |
-| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"stale"` (the `region` is on a screenshot that no longer matches the console, as for a spot; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
 | `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (a screenshot, as set out under `until` in [`mentor.environmentWait.request`](#mentorenvironmentwaitrequest)) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for `"settles"`. Receivers must tolerate unknown values. |
@@ -1536,7 +1538,7 @@ same console text goes to, wherever its focus is.
 | `keys`   | string   | Key names joined with `+`, such as `Ctrl+Shift+Esc`. Case doesn't matter, and order doesn't either: hosts press modifiers first. At most one key besides Ctrl, Alt, Shift and Win. |
 | `repeat` | integer? | How many times to press the keys, 1 to 20. Defaults to 1. |
 | `screenshot` | boolean? | `true` to get the screen back with the response, once it settles after the keys. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
-| `waitUntil` | object? | `{ until, timeoutSeconds?, quietSeconds? }`: wait for the screen to change or settle after the keys, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
+| `waitUntil` | object? | `{ until, timeoutSeconds?, quietSeconds?, region? }`: wait for the screen to change or settle after the keys, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
 
 **Key names:** `Ctrl`, `Alt`, `Shift`, `Win`, `Tab`, `Enter`, `Esc`,
 `Space`, `Backspace`, `Delete`, `Insert`, `Home`, `End`, `PageUp`,
@@ -1617,8 +1619,9 @@ web page.
 | `toX`, `toY`       | number?  | Drag only, and required for it: where the drag ends, on the same screenshot. |
 | `direction`        | string?  | Scroll only: `"up"` or `"down"`. Defaults to `"down"`. |
 | `amount`           | integer? | Scroll only: how many wheel notches, 1 to 20. Defaults to 1. |
+| `checkTarget`      | boolean? | `true` to refuse the action as `"stale"`, sending nothing, when the screen around its spot has changed since the screenshot. See **Check the target** below. Defaults to `false`. |
 | `screenshot`       | boolean? | `true` to get the screen back with the response, once it settles after the action. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
-| `waitUntil`        | object?  | `{ until, timeoutSeconds?, quietSeconds? }`: wait for the screen to change or settle after the action, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
+| `waitUntil`        | object?  | `{ until, timeoutSeconds?, quietSeconds?, region? }`: wait for the screen to change or settle after the action, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
 
 **Look before and after.** Take a screenshot to find the spot, and look
 again after the action to see what it did: set `screenshot`, or take a
@@ -1629,6 +1632,17 @@ screenshot after giving the console a moment (about a second). Without
 waits for that text to finish typing, and keys and mouse actions go out
 in the order the requests arrive, with the same rules for input dropped
 before it goes out.
+
+**Check the target.** With `checkTarget: true`, the host first compares
+a 24 by 24 pixel patch of the screenshot around the spot (a drag's
+start) with the live screen. If it has changed beyond a little, the
+request answers `"stale"` with the message "The screen around your spot
+has changed since your screenshot. Take a new one and find the spot on
+it." and nothing is sent. That lets a mentor send several clicks on
+stable parts of the screen from one screenshot, and stop as soon as one
+of them has moved. Where the host kept no copy of the screenshot's
+screen to compare with, the action goes as it would without
+`checkTarget`.
 
 **The student sees it.** The Skillable lab platform shows a ripple on
 the console where the mentor clicks: two for a double-click, three for
@@ -1657,6 +1671,7 @@ as soon as the screen does what was asked, or when time runs out.
 | `until`          | string   | `"changes"`: until the screen visibly differs from what it is measured from. That is the latest screenshot any part of the lab page took, for any reason and not only one returned to the mentor, if it shows this console, so a change that came before the request answers at once, as does a screen at a different size. Otherwise it is the screen when the wait starts. `"settles"`: until it stops changing for `quietSeconds`. |
 | `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 60. Defaults to 10. |
 | `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0, at most 10 and no more than `timeoutSeconds`. Defaults to 2, or to `timeoutSeconds` when that is shorter. |
+| `region`         | object?  | `{ x, y, width, height, screenshotWidth, screenshotHeight }`: watch only this part of the screen, its top left corner and size in pixels of the latest screenshot, kept on it, and that screenshot's size. See **Regions** below. |
 
 **What counts as a change.** The host compares a small grayscale
 thumbnail of the screen (about 64 by 40, each pixel the average of the
@@ -1664,6 +1679,17 @@ block it covers), so a blinking cursor or a ticking clock doesn't count
 as a change, while a window opening or a page loading does. A busy
 progress bar or a playing video keeps the screen changing, so
 `"settles"` waits for it to stop.
+
+**Regions.** With `region`, the wait considers only that part of the
+screen, such as a Next button turning active or a progress area, and
+ignores changes elsewhere. The region is checked and scaled like a
+region `mentor.showInEnvironment.request` outlines: one off the
+screenshot answers `"failed"`, and one on a screenshot that no longer
+matches the console answers `"stale"` (see
+[Spots on a screenshot](#spots-on-a-screenshot)). It is sampled finer
+than the whole screen, and counts as changed once about 2% of it has.
+A wait on a region until it changes measures from the latest
+screenshot's copy of the region.
 
 Set the iframe-side timeout a little longer than `timeoutSeconds`.
 Consoles with no screen to watch, such as terminals, answer
