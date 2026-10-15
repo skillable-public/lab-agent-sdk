@@ -92,10 +92,9 @@ so that call's entry is read back even after a long batched turn. Where the lear
 instructions page, its text, the selected VM) and whether a run is going
 are told in notes on the conversation each time they change, so that the
 system prompt and tools change only when the user's view or what the mentor
-may do changes. Cache entries last
-five minutes, or an hour whenever the next call may come more than five
-minutes later: during a run with that much time left, and once the mentor
-has lately waited on the learner, on a slow command or on the screen for minutes. The oldest part of a long
+may do changes. Cache entries last an
+hour, so a learner's pause or a long wait never means writing the whole
+conversation to the cache again. The oldest part of a long
 conversation is summarized in one step, once it passes
 `Mentor:Claude:SummarizeAtContextShare` (0.9) of the model's context or
 of `SessionStore:MaxConversationBytes` (1.5 MB, which keeps it within a
