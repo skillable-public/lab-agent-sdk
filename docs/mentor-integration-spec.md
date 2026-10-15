@@ -404,11 +404,13 @@ iframe's perspective. Treat it accordingly:
 
 - **Secret hygiene.** The `environment` map and screenshot data may
   contain secrets (env vars, on-screen tokens, shell history with
-  credentials), and `LabContext.tokens` holds the lab's VM and
-  endpoint user names and passwords. Avoid persisting them by default,
-  redact obvious secret patterns before sending to upstream LLM
-  providers, and document your retention behavior to Skillable during
-  onboarding.
+  credentials). Avoid persisting them by default, redact obvious secret
+  patterns before sending to upstream LLM providers, and document your
+  retention behavior to Skillable during onboarding.
+  `LabContext.tokens` holds the lab's VM, endpoint and cloud portal
+  user names and passwords the student is given. These are lab data
+  the student is shown, not secrets, so a mentor may send them to its
+  model; the sample does. Keep redacting other secret patterns.
 
 ---
 
@@ -813,7 +815,7 @@ to upstream LLMs or persistent storage.
 lab's activities, such as answering a question or running a check. Not
 sent for a check the mentor ran itself with
 `mentor.evaluateActivity.request`, which answers its request instead,
-and only after `mentor.ready`. With no envelope `id` of its own.
+and only after `host.init`. With no envelope `id` of its own.
 
 | Field    | Type     | Notes |
 |----------|----------|-------|
@@ -944,7 +946,7 @@ current page.
 | Field    | Type           | Notes |
 |----------|----------------|-------|
 | `pages`  | LabPage[]      | Ordered array of instruction pages for the lab. Index `i` of the array corresponds to `LabContext.currentPageIndex` value `i`. |
-| `source` | string?        | The whole instructions document as one markdown string, the text the instructions editor saves, page breaks included. `null` when the host has none. |
+| `source` | string?        | The whole instructions document as one markdown string, the text the instructions editor saves, page breaks and any YAML header (which no page shows) included. Sent only when the request asks for it with `includeSource: true`. `null` when the host has none. |
 
 Each `LabPage` object:
 
@@ -1154,7 +1156,7 @@ response in `host.init.capabilities` when the lab has virtual machines.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the view changed (or already was the one asked for). The host then sends `host.context.update` with the new `userRole` and the machines that view shows. |
+| `ok`      | boolean  | `true` when the view changed (or already was the one asked for). The host then sends `host.context.update` with the new `userRole`, and the machines and tokens of that view. |
 | `reason`  | string?  | `"not_supported"` when the user isn't a lab author, `"failed"` for anything else, such as an unknown role. `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 
@@ -1219,9 +1221,12 @@ authors (`userRole` `"labAuthor"`).
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the activity's check ran and gave a result, whether it passed or not. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view), `"not_found"` (no activity with that alias and a check to run), `"timeout"` (no result within 5 minutes), `"failed"` (anything else, including a missing `alias` or that check already running). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view, or the lab is a preview), `"not_found"` (no activity with that alias and a check to run), `"timeout"` (only when no result comes within 5 minutes), `"failed"` (anything else, including a missing `alias`, the activity's check button disabled because a check is already running or the activity takes no more attempts, the check not starting, or the check ending without a result, as when the lab hits an error running it). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `passed`  | boolean? | `true` when the check passed, `false` when it didn't. `null` for an activity with no right answer, or when `ok` is `false`. |
+
+The host answers a `"not_supported"`, `"not_found"` or `"failed"` case
+at once rather than waiting for the 5 minutes to pass.
 
 Hosts advertise this response in `host.init.capabilities` only to lab
 authors (`userRole` `"labAuthor"`).
@@ -1232,9 +1237,9 @@ authors (`userRole` `"labAuthor"`).
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the host has the time left. |
-| `reason`  | string?  | Failure category when `ok` is `false`. `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"failed"` (the time left couldn't be read). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
-| `minutes` | number   | Minutes left before the lab ends. |
+| `minutes` | number?  | The lab's minutes left as of the Lab Client's latest timer update. `0` when the lab has no time left or no time limit. `null` when `ok` is `false`. |
 
 Hosts advertise this response in `host.init.capabilities`.
 
@@ -1437,8 +1442,12 @@ ahead to upcoming steps, recap completed steps, or build an overview
 of the entire task arc — rather than working only from
 `LabContext.pageInstructions` (which exposes only the current page).
 
-No payload fields beyond the envelope; assign an `id` and expect the
-host to echo it on its `host.labInstructions.response`.
+Assign an `id` and expect the host to echo it on its
+`host.labInstructions.response`.
+
+| Field           | Type     | Notes |
+|-----------------|----------|-------|
+| `includeSource` | boolean? | `true` to have the response carry `source`, the whole instructions document. Omitted or `false` leaves `source` out. |
 
 Iframes SHOULD only fire this when `host.labInstructions.response` is
 present in `host.init.capabilities`. Standard 10-second client-side
@@ -2076,7 +2085,7 @@ within a page are a lab-authoring concept and are not modeled here.
 | `totalPages`       | integer?                     | Total number of pages. |
 | `pageTitle`        | string?                      | The page's heading text, if it starts with one. When absent, display as `Page {currentPageIndex + 1}`. |
 | `pageInstructions` | string?                      | The current page's **markdown source** as the author wrote it, tokens unresolved (such as `@lab.VirtualMachine(Win11).Username`), with `@lab.Variable(name)` and `@lab.Activity(alias)` references left as written. When the host can't split the source into the pages it shows (for example a replacement adds a page break), or for a page the source doesn't give (such as an external manual page), it sends the text the page shows instead. Use this to ground mentor responses. See **Instructions markdown** below. |
-| `tokens`           | `{ [token: string]: string }`? | The lab's replacement tokens and their values, keyed by the token as instructions write it, such as `{ "@lab.VirtualMachine(Win11).Username": "student1" }`. A token the lab shows as a link (such as a VM's select link) has its link text as its value. Includes VM and endpoint user names and passwords; cloud credential secrets are never in it. Fixed for the attempt: sent in `host.init`, and again with the machines when a view switch re-sends them in `host.context.update`. A `host.context.update` without it means unchanged; carry the last value forward, as for `machines`. |
+| `tokens`           | `{ [token: string]: string }`? | The lab's replacement tokens and their values, keyed by the token as instructions write it, such as `{ "@lab.VirtualMachine(Win11).Username": "student1" }`. Includes the VM, endpoint and cloud portal credential user names and passwords the student is given, and tokens for every VM, including ones hidden from students (unlike `machines`). Subscription automation secrets (app secrets, access keys) are never in it. A token the Lab Client shows as a link (such as a VM's select link) is left out, since it only repeats a name; a token shown as HTML (such as `@lab.Title`) gives its text. Sent in `host.init`, and again with the machines in the `host.context.update` that follows a view switch; any other `host.context.update` leaves it out, which means unchanged. Carry the last value forward, as for `machines`. |
 | `environment`      | `{ [key: string]: string }`? | Facts about the environment the student has selected. Well-known keys: `name` (display name), `os`, and for virtual machine labs `machine` (the selected VM's alias) and `endpoint` (the selected endpoint's alias, when the student is on an endpoint rather than the VM's own console). Hosts may add free-form keys (shell, cwd, last command, etc.). |
 | `machines`         | LabMachine[]?                | The lab's virtual machines the user can see, and each one's endpoints. For a student, a VM is listed when it or one of its endpoints is visible to them; a VM completely hidden from students is left out, so the mentor can't reveal it. For a user who can edit the lab, every VM is listed, as their console shows them. Sent in `host.init`, and again in the `host.context.update` that follows a view switch, since the view decides which VMs show; any other `host.context.update` leaves it out, which means unchanged. Absent outside virtual machine labs. See below. |
 
@@ -2093,12 +2102,16 @@ and `host.labInstructions.response.source` use these conventions:
 - `@lab.Activity(alias)`: an activity (a question or a check), run with
   `mentor.evaluateActivity.request`.
 - `+++text+++`: text the student can click to type into the console.
+- `++text++`: text the student can copy.
 - `- []` at the start of a line: a task the student ticks.
-- A line of `===` (also `====` or `= = =`, after up to 3 spaces): a
-  break between pages.
+- A line of three or more `=`, optionally space-separated (such as
+  `===`, `====` or `= = =`), with up to three leading spaces: a break
+  between pages.
 
-A host may send rendered HTML in these fields, as older hosts did. The
-sample chat converts HTML to text.
+A host may send rendered HTML in these fields. The sample chat treats
+them as rendered HTML only when they open with a block element (such
+as `<div>`, `<p>` or `<h1>`), and converts that HTML to text; markdown
+containing inline tags or `<placeholder>` text is read as markdown.
 
 Each `LabMachine`:
 

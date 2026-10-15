@@ -257,8 +257,9 @@ at once, and nothing reaches the lab. When the turn ends, or the run
 ends or pauses, the checklist folds into a line such as "Plan: 4 of 5
 steps done", in the run's line for a run, which expands to each step. A
 run picked up again shows its plan again. The updates are in the stored
-conversation, so a reload rebuilds the folded plan from the latest one. This is behavior of this sample mentor, not part
-of the integration contract.
+conversation, so a reload rebuilds the folded plan from the latest one.
+This is behavior of this sample mentor, not part of the integration
+contract.
 
 ### Instruction edits
 
@@ -276,8 +277,10 @@ the integration contract.
 ### Lab data
 
 The Claude mentor reads the instructions as their markdown source, with
-the lab's tokens and their values from `host.init`. It reads lab variables
-with `get_lab_variable` and the time left with `get_time_remaining`. For
+the lab's tokens and their values from `host.init`. It sends the lab's
+credentials in the token table to its model, as lab data. It reads lab
+variables with `get_lab_variable` and the time left with
+`get_time_remaining`. For
 a lab author it also sets variables with `set_lab_variable` and runs the
 lab's own checks with `run_lab_check`, which an author run uses to check
 each step it completes. Activities the learner completes reach it as
