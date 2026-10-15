@@ -277,11 +277,11 @@ the integration contract.
 ### Lab data
 
 The Claude mentor reads the instructions as their markdown source, with
-the lab's tokens and their values from `host.init`. It sends the lab's
-credentials in the token table to its model, as lab data. It reads lab
-variables with `get_lab_variable` and the time left with
-`get_time_remaining`. For
-a lab author it also sets variables with `set_lab_variable` and runs the
+the lab's tokens and their values from `host.init` (and again after a
+view switch). It sends the lab's credentials in the token table to its
+model, as lab data. It reads lab variables with `get_lab_variable` and
+the time left with `get_time_remaining`. For a lab author it also sets
+variables with `set_lab_variable` and runs the
 lab's own checks with `run_lab_check`, which an author run uses to check
 each step it completes. Activities the learner completes reach it as
 notes on its next turn. This is behavior of this sample mentor, built on
