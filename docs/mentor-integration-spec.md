@@ -948,7 +948,7 @@ fulfilled `id`.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the host pressed the keys (or queued them behind text still being typed). It says nothing about what they did; ask for `screenshot`, or take a screenshot, to see. |
+| `ok`      | boolean  | `true` when the host pressed the keys (or queued them behind text or earlier input still going out). It says nothing about what they did; ask for `screenshot`, or take a screenshot, to see. |
 | `reason`  | string?  | Failure category when `ok` is `false`: `"not_available"` (nothing is selected to press keys in), `"not_supported"` (the selected console can't take these keys, such as a terminal asked for Win+R, or isn't connected), `"failed"` (anything else, including an unknown key name or a bad `repeat`). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the keys, as described under [Screenshot after an action](#screenshot-after-an-action). |
@@ -962,7 +962,7 @@ has a console to press keys in.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text still being typed). It says nothing about what the action did; ask for `screenshot`, or take a screenshot, to see. |
+| `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text or earlier input still going out). It says nothing about what the action did; ask for `screenshot`, or take a screenshot, to see. |
 | `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot is on a screenshot that no longer matches the console; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the action, as described under [Screenshot after an action](#screenshot-after-an-action). |
@@ -1030,7 +1030,7 @@ failed action.
 | `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
-| `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (the mentor's latest screenshot of this console) or `"now"` (the screen when the wait began). Absent for `"settles"`. Receivers must tolerate unknown values. |
+| `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (the mentor's latest screenshot of this console) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for `"settles"`. Receivers must tolerate unknown values. |
 
 A `"timeout"` isn't an error so much as an answer: the screen stayed as
 it was, or kept moving. Take a screenshot to see where things stand.
@@ -1468,9 +1468,14 @@ same console text goes to, wherever its focus is.
 even where the host paces typing, so "type a file name, then Ctrl+S"
 works as written. Keys and mouse actions go out in the order the requests
 arrive. One still waiting behind earlier input is dropped if the console
-disconnects before it goes out; ask for `screenshot` or `waitUntil` to
-learn whether it went out. A console takes only so much waiting input at
-once: past that, a request answers `"not_supported"` until it catches up.
+disconnects before it goes out or, on some consoles, if more text is sent
+while it is still waiting behind earlier text; ask for `screenshot` or
+`waitUntil` to learn whether it went out. A console takes only so much
+waiting input at once: past that, a request answers `"not_supported"`
+until it catches up, and presses none of its keys, so it can be sent
+again. Where the input waits behind text the host types for the student,
+a request that doesn't fit answers `ok: true` and is reported dropped
+instead.
 
 **Terminals.** In an SSH or PowerShell terminal, the host sends the
 characters a terminal reads for the keys: Ctrl with a letter is that
