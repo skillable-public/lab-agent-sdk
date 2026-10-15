@@ -183,15 +183,28 @@ runs out, it looks stuck (the same action with the same result, or
 actions that change nothing, several times in a row), or the author
 presses Stop. Each result the mentor gets during a run ends with its
 time left and how full its context is (`Mentor:Claude:ContextTokens`,
-1000000 by default, the full window of Claude Opus 5.5). Students are never offered a run.
+1000000 by default, the full window of Claude Opus 5.5).
 
-The backend enforces that: it drops the run state the chat sends with a
-message or tool results, and refuses a run's end or continuation with
-403, unless the caller may drive runs. The `role` claim of the verified
-launch token decides when it has one. Without the claim, or without a
-token (`LaunchToken:ChatAgent:RequireToken` off), the posted lab context's `userRole` decides,
-and a session in which the backend has accepted a run before also
-passes, so an author's run carries on in student view.
+In student view the mentor coaches rather than doing the lab's learning
+work: it never completes the learner's tasks or checks off tasks they
+didn't do, and when asked to do it for them it offers to guide them
+through it instead (marks, tours, hints, checking their work). It still
+acts where that helps them learn or gets them unstuck, such as showing
+how something is done, a step or two past an obstacle, or undoing a mess
+to restore a clean starting point, and then hands back. For that it may
+start a walkthrough run on a learner's behalf, so a student's mentor is
+offered `start_run` with walkthrough as its only mode.
+
+Shortcut runs are for lab authors only. The chat refuses a shortcut
+`start_run`, or picking up a shortcut run, for anyone who isn't the
+author, and the backend enforces it: it drops shortcut run state the
+chat sends with a message or tool results, and refuses to continue a
+shortcut run with 403, unless the caller is a lab author. The `role`
+claim of the verified launch token decides when it has one. Without the
+claim, or without a token (`LaunchToken:ChatAgent:RequireToken` off),
+the posted lab context's `userRole` decides, and a session in which the
+backend has accepted a shortcut run before also passes, so an author's
+shortcut run carries on in student view.
 
 During a run the mentor's text between actions is one short line, or
 none; the summary it ends the run with is written out in full.
