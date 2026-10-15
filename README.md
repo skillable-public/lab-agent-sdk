@@ -197,15 +197,7 @@ acts where that helps them learn or gets them unstuck, such as showing
 how something is done, a step or two past an obstacle, or undoing a mess
 to restore a clean starting point, and then hands back. For that it may
 start a walkthrough run on a learner's behalf, so a student's mentor is
-offered `start_run` with walkthrough as its only mode. A student's run
-goes on for at most `Mentor:Run:DefaultMinutes` at a stretch: the
-backend records when each run starts or is resumed, and stops the clock
-when the chat records that the run ended or paused, so a pause doesn't
-count and Resume starts the clock again. Past the limit it refuses to
-continue the run with 403, and drops the run state the chat sends with a
-message or tool results, so the mentor is told the run is over. A run
-that already ended, which the chat reports for the mentor to judge
-whether to pick it up, is passed on whatever its age.
+offered `start_run` with walkthrough as its only mode.
 
 Shortcut runs are for lab authors only. The chat refuses a shortcut
 `start_run`, or picking up a shortcut run, for anyone who isn't the
