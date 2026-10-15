@@ -989,8 +989,22 @@ half a second, so the screenshot isn't caught mid-transition. A bad
 `waitUntil` refuses the whole request with `"failed"`, before the action
 is taken. The response's `waited` says how the wait went, with the fields
 of [`host.environmentWait.response`](#hostenvironmentwaitresponse):
-`ok`, `reason` (such as `"timeout"`), `message` and `waitedMs`. A wait
-that times out still returns the screen, which shows why.
+`ok`, `reason` (such as `"timeout"`), `message`, `waitedMs` and, for
+`"changes"`, `measuredFrom`. A wait that times out still returns the
+screen, which shows why. After an action, a wait until the screen changes
+measures from the screen just before the action went out, so an effect
+that came before the wait began still counts; `measuredFrom` is `"now"`.
+
+Where the console queues the action, such as behind text still being
+typed, the wait and the screenshot start only once the action has gone
+out. If it is dropped first, or hasn't gone out after 30 seconds, the
+action still answers `ok: true`, and `waited` and `screenshot` answer
+`ok: false` with reason `"failed"` and the message `"The input was dropped
+before it was sent."` or `"The input had not been sent after 30
+seconds."`, without waiting or capturing. An action that hasn't gone out
+after 30 seconds is not sent later. Because of that wait, set the
+iframe-side timeout for a request with `screenshot` or `waitUntil` to
+about 30 seconds more than `timeoutSeconds`.
 
 | Field      | Type     | Notes |
 |------------|----------|-------|
@@ -1003,9 +1017,9 @@ that times out still returns the screen, which shows why.
 
 The host records it like any other screenshot, so spots on it can be
 used in the next request (see [Spots on a screenshot](#spots-on-a-screenshot)).
-The action's own `ok` and `reason` stand whatever happens to the
-screenshot: a failed capture is `screenshot.ok: false`, not a failed
-action.
+The action's own `ok` and `reason` stand whatever happens to the wait
+or the screenshot: a failed capture is `screenshot.ok: false`, not a
+failed action.
 
 ### `host.environmentWait.response`
 **Optional.** Reply to a prior `mentor.environmentWait.request`.
@@ -1452,7 +1466,11 @@ same console text goes to, wherever its focus is.
 
 **After the text.** Keys pressed right after text land after that text,
 even where the host paces typing, so "type a file name, then Ctrl+S"
-works as written.
+works as written. Keys and mouse actions go out in the order the requests
+arrive. One still waiting behind earlier input is dropped if the console
+disconnects before it goes out; ask for `screenshot` or `waitUntil` to
+learn whether it went out. A console takes only so much waiting input at
+once: past that, a request answers `"not_supported"` until it catches up.
 
 **Terminals.** In an SSH or PowerShell terminal, the host sends the
 characters a terminal reads for the keys: Ctrl with a letter is that
@@ -1514,7 +1532,9 @@ screenshot after giving the console a moment (about a second). Without
 `screenshot`, the response says only whether the action was done.
 
 **After the text.** Like keys, a mouse action sent right after text
-waits for that text to finish typing.
+waits for that text to finish typing, and keys and mouse actions go out
+in the order the requests arrive, with the same rules for input dropped
+before it goes out.
 
 **The student sees it.** The Skillable lab platform shows a ripple on
 the console where the mentor clicks: two for a double-click, and one at
