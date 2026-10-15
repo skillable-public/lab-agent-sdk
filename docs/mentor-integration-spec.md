@@ -1671,8 +1671,8 @@ as soon as the screen does what was asked, or when time runs out.
 | Field            | Type     | Notes |
 |------------------|----------|-------|
 | `until`          | string   | `"changes"`: until the screen visibly differs from what it is measured from. That is the latest screenshot any part of the lab page took, for any reason and not only one returned to the mentor, if it shows this console, so a change that came before the request answers at once, as does a screen at a different size. Otherwise it is the screen when the wait starts. `"settles"`: until it stops changing for `quietSeconds`. |
-| `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 60. Defaults to 10. |
-| `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0, at most 10 and no more than `timeoutSeconds`. Defaults to 2, or to `timeoutSeconds` when that is shorter. |
+| `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 600. Defaults to 10. |
+| `quietSeconds`   | number?  | `"settles"` only: how long the screen must stay still, more than 0, at most 30 and no more than `timeoutSeconds`. Defaults to 2, or to `timeoutSeconds` when that is shorter. |
 | `region`         | object?  | `{ x, y, width, height, screenshotWidth, screenshotHeight }`: watch only this part of the screen, its top left corner and size in pixels of the latest screenshot, kept on it, and that screenshot's size. See **Regions** below. |
 
 **What counts as a change.** The host compares a small grayscale
