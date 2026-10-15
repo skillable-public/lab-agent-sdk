@@ -127,11 +127,14 @@ unchanged), so Enter doesn't race Start search results; that wait
 timing out or failing doesn't stop the batch either. The first action that fails, or whose `then` wait for
 the screen to change times out (a click that didn't land), stops the
 batch: every call after it in the reply is skipped, whatever its tool,
-and the mentor gets the screen as it stands. A batch holds at most 8
-console actions; a 9th stops the batch the same way. A click can only
-open a batch, never follow another action in it, since it is aimed at a
-screenshot the earlier actions may have changed: a click after another
-console action stops the batch the same way.
+and the mentor gets the screen as it stands. Before anything runs, the
+chat checks every console action in the reply against rules it can see
+up front: a `use_mouse` action the tool's schema offers, the fields each
+action needs (`x` and `y`, `to_x` and `to_y` for a drag, `keys`, `text`),
+at most 8 console actions, and a click only as the first of them, since
+it is aimed at a screenshot the earlier actions may have changed. If any
+rule is broken, none of the reply's calls run: each gets an error naming
+every problem, so the mentor can fix the whole batch in one go.
 
 ### Run mode
 
