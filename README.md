@@ -250,13 +250,14 @@ shows its plan with `update_plan`: a checklist at the end of the chat,
 above the line saying it is working out its next step, with each step
 not started, in progress, done, skipped or failed. The mentor sends the
 whole list with its first action and again as steps start and end, in
-the same reply as an action, so a plan costs no extra model turn. The
-chat answers it at once, and nothing reaches the lab. When the turn or
-the run ends, the checklist folds into a line such as "Plan: 4 of 5
-steps done", in the run's end line for a run, which expands to each
-step. A paused run's plan shows again when the run resumes. The updates
-are in the stored conversation, so a reload rebuilds the folded plan
-from the latest one. This is behavior of this sample mentor, not part
+the same reply as an action, so the plan adds no model turn. A reply
+that only finishes the plan ends the turn; one that only updates it
+costs a turn, and in a run counts as doing nothing. The chat answers it
+at once, and nothing reaches the lab. When the turn ends, or the run
+ends or pauses, the checklist folds into a line such as "Plan: 4 of 5
+steps done", in the run's line for a run, which expands to each step. A
+run picked up again shows its plan again. The updates are in the stored
+conversation, so a reload rebuilds the folded plan from the latest one. This is behavior of this sample mentor, not part
 of the integration contract.
 
 ### Session storage
