@@ -93,10 +93,9 @@ instructions page, its text, the selected VM) and whether a run is going
 are told in notes on the conversation each time they change, so that the
 system prompt and tools change only when the user's view or what the mentor
 may do changes. Cache entries last
-five minutes in chat and an hour during a lab author's run
-(`Mentor:Claude:RunCacheTtl`, `1h` or `5m`), except while the author is
-in student view, where the run's entries last five minutes as a
-student's do. The oldest part of a long
+five minutes, or an hour whenever the next call may come more than five
+minutes later: during a run with that much time left, and once the mentor
+has lately waited on the learner or on a slow command. The oldest part of a long
 conversation is summarized in one step, once it passes
 `Mentor:Claude:SummarizeAtContextShare` (0.9) of the model's context or
 of `SessionStore:MaxConversationBytes` (1.5 MB, which keeps it within a
