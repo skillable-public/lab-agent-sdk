@@ -260,6 +260,19 @@ run picked up again shows its plan again. The updates are in the stored
 conversation, so a reload rebuilds the folded plan from the latest one. This is behavior of this sample mentor, not part
 of the integration contract.
 
+### Instruction edits
+
+For a lab author, the Claude mentor proposes a fix to a step of the
+instructions that won't work as written, such as a key combination the
+student's own computer or browser takes, with
+`propose_instruction_edit`, once per problem. The chat shows a card with
+the step as it reads now beside the replacement and why, with **Copy new
+text** and **Dismiss**: the author pastes the text into the lab's
+instructions themselves. Students are never offered the tool, and the
+chat refuses it outside author view. A reload redraws the cards from the
+stored conversation. This is behavior of this sample mentor, not part of
+the integration contract.
+
 ### Session storage
 
 `SessionStore:Provider` picks where mentor sessions, their transcript
