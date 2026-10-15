@@ -273,6 +273,20 @@ chat refuses it outside author view. A reload redraws the cards from the
 stored conversation. This is behavior of this sample mentor, not part of
 the integration contract.
 
+### Lab data
+
+The Claude mentor reads the instructions as their markdown source, with
+the lab's tokens and their values from `host.init`. It reads lab variables
+with `get_lab_variable` and the time left with `get_time_remaining`. For
+a lab author it also sets variables with `set_lab_variable` and runs the
+lab's own checks with `run_lab_check`, which an author run uses to check
+each step it completes. Activities the learner completes reach it as
+notes on its next turn. This is behavior of this sample mentor, built on
+the contract's `LabContext.tokens` field and its
+`mentor.labVariable.request`, `mentor.minutesRemaining.request`,
+`mentor.setLabVariable.request`, `mentor.evaluateActivity.request` and
+`host.activity.completed` messages.
+
 ### Session storage
 
 `SessionStore:Provider` picks where mentor sessions, their transcript

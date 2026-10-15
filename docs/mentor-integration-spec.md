@@ -373,8 +373,8 @@ that limits damage if anything else goes wrong.
 
 ### 3.7 Host content is untrusted input
 
-Every value the host supplies — `pageInstructions`, `environment` map
-values, `host.send.message.content`, `host.hint.request.reason`,
+Every value the host supplies — `pageInstructions`, `tokens` and
+`environment` map values, `host.send.message.content`, `host.hint.request.reason`,
 `userName`, screenshot bytes — is **untrusted** input from your
 iframe's perspective. Treat it accordingly:
 
@@ -404,9 +404,11 @@ iframe's perspective. Treat it accordingly:
 
 - **Secret hygiene.** The `environment` map and screenshot data may
   contain secrets (env vars, on-screen tokens, shell history with
-  credentials). Avoid persisting them by default, redact obvious
-  secret patterns before sending to upstream LLM providers, and
-  document your retention behavior to Skillable during onboarding.
+  credentials), and `LabContext.tokens` holds the lab's VM and
+  endpoint user names and passwords. Avoid persisting them by default,
+  redact obvious secret patterns before sending to upstream LLM
+  providers, and document your retention behavior to Skillable during
+  onboarding.
 
 ---
 
@@ -563,6 +565,10 @@ Your iframe, on load:
       "mentor.labClientScreenshot.request",
       "mentor.environmentConnectionQuality.request",
       "mentor.labInstructions.request",
+      "mentor.labVariable.request",
+      "mentor.setLabVariable.request",
+      "mentor.evaluateActivity.request",
+      "mentor.minutesRemaining.request",
       "mentor.error"
     ]
   }
@@ -596,7 +602,9 @@ The lab, in response:
       "host.environmentScreenshot.response",
       "host.labClientScreenshot.response",
       "host.environmentConnectionQuality.response",
-      "host.labInstructions.response"
+      "host.labInstructions.response",
+      "host.labVariable.response",
+      "host.minutesRemaining.response"
     ]
   }
 }
@@ -635,6 +643,7 @@ Your iframe, after resolving the session:
 | `host.environmentTour.step`          | Optional  | A tour the mentor showed opened, or the student moved to another step. |
 | `host.environmentMark.ended`         | Optional  | A single mark the mentor showed over the console has ended, and how. |
 | `host.task.changed`                  | Optional  | The student ticked or unticked a task in the instructions. |
+| `host.activity.completed`            | Optional  | The student completed one of the lab's activities (answered a question, ran a check). |
 | `host.environmentScreenshot.response`| Optional  | Reply to `mentor.environmentScreenshot.request` with image data or a failure reason. |
 | `host.labClientScreenshot.response`  | Optional  | Reply to `mentor.labClientScreenshot.request` with image data or a failure reason. |
 | `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
@@ -648,6 +657,10 @@ Your iframe, after resolving the session:
 | `host.environmentWait.response`      | Optional  | Reply to `mentor.environmentWait.request`: whether the console's screen changed, or settled, in time. |
 | `host.showInEnvironment.response`    | Optional  | Reply to `mentor.showInEnvironment.request`: whether the lab is showing the mark or tip over the console. |
 | `host.viewAs.response`               | Optional  | Reply to `mentor.viewAs.request`: whether the view changed. |
+| `host.labVariable.response`          | Optional  | Reply to `mentor.labVariable.request` with the variable's value. |
+| `host.setLabVariable.response`       | Optional  | Reply to `mentor.setLabVariable.request`: whether the variable was saved. |
+| `host.evaluateActivity.response`     | Optional  | Reply to `mentor.evaluateActivity.request` with the activity check's result. |
+| `host.minutesRemaining.response`     | Optional  | Reply to `mentor.minutesRemaining.request` with the minutes left in the lab. |
 
 ### `host.init`
 **Required.** Sent once after the lab receives `mentor.ready`. If your
@@ -672,7 +685,7 @@ host would have resumed.
 | `textColor`      | string?                        | The lab theme's text color for that mode, as a CSS color. Absent when the host has none. |
 | `locale`         | string?                        | BCP-47 locale. |
 | `labContext`     | [`LabContext`](#10-labcontext) | Initial grounding. |
-| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.environmentTour.ended`, `host.environmentTour.step`, `host.environmentMark.ended`, `host.task.changed`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
+| `capabilities`   | string[]?                      | **Response** message types the host fulfills. Used by iframes to gate UI for chat-initiated request/response patterns (e.g., hide the "Get screenshot" button when the host doesn't advertise `host.environmentScreenshot.response`). Host-initiated messages (`host.context.update`, `host.hint.request`, `host.theme.change`, `host.locale.change`, `host.send.message`, `host.environmentTour.ended`, `host.environmentTour.step`, `host.environmentMark.ended`, `host.task.changed`, `host.activity.completed`, `host.auth.refresh`) are **not** advertised here — the iframe handles them passively when they arrive, so there's no UI to gate. The array grows as the protocol gains request/response patterns. Iframes should also tolerate the array being absent (missing or empty) by either hiding the corresponding UI or attempting the request and handling failure responses gracefully. |
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
@@ -795,6 +808,21 @@ take a tick as the cue to confirm that step and move on.
 contain sample credentials. Redact obvious secrets before sending it
 to upstream LLMs or persistent storage.
 
+### `host.activity.completed`
+**Optional.** Tells the mentor that the student completed one of the
+lab's activities, such as answering a question or running a check. Not
+sent for a check the mentor ran itself with
+`mentor.evaluateActivity.request`, which answers its request instead,
+and only after `mentor.ready`. With no envelope `id` of its own.
+
+| Field    | Type     | Notes |
+|----------|----------|-------|
+| `alias`  | string?  | The activity's alias, as instructions reference it with `@lab.Activity(alias)`. `null` when the activity has none. |
+| `passed` | boolean? | `true` when the answer or check passed, `false` when it didn't. `null` for an activity with no right answer. |
+
+A mentor guiding the student can take a passed activity as the cue to
+confirm that step and move on, and a failed one as the cue to help.
+
 ### `host.environmentScreenshot.response`
 **Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
 The host correlates request/response by echoing the request's envelope
@@ -916,6 +944,7 @@ current page.
 | Field    | Type           | Notes |
 |----------|----------------|-------|
 | `pages`  | LabPage[]      | Ordered array of instruction pages for the lab. Index `i` of the array corresponds to `LabContext.currentPageIndex` value `i`. |
+| `source` | string?        | The whole instructions document as one markdown string, the text the instructions editor saves, page breaks included. `null` when the host has none. |
 
 Each `LabPage` object:
 
@@ -923,7 +952,7 @@ Each `LabPage` object:
 |-----------------|---------|-------|
 | `index`         | integer | Zero-based page index. Matches `LabContext.currentPageIndex` semantics. Provided explicitly so consumers can verify ordering rather than rely on array position. |
 | `title`         | string? | Page heading, if the page has one. Same field shape as `LabContext.pageTitle`. `null` or omitted for pages with no heading. |
-| `instructions`  | string  | Raw page content. Same shape as `LabContext.pageInstructions` (markdown in the sample; hosts may use plain text). |
+| `instructions`  | string  | The page's markdown source, or the text the page shows when the host can't give the source. Same rules as `LabContext.pageInstructions`. |
 
 The `LabPage` object is extensible — hosts may add fields (e.g. for
 embedded resources, video URLs, completion gates) in future versions
@@ -954,7 +983,7 @@ the iframe's responsibility, not the host's. Hosts can simply refuse to
 advertise the capability if they want to prevent look-ahead entirely.
 
 **Secret hygiene.** Same caution that applies to
-`LabContext.pageInstructions` applies here: instruction bodies may
+`LabContext.pageInstructions` applies here, to `source` as well: instruction bodies may
 contain example tokens, shell history snippets, or sample credentials.
 Treat the content as untrusted input; redact obvious secrets before
 sending to upstream LLMs or persistent storage.
@@ -1160,6 +1189,55 @@ Hosts that can check tasks advertise this response in
 any, since `host.init` can go out before they render; a lab without
 tasks answers `"not_found"`.
 
+### `host.labVariable.response`
+**Optional.** Reply to a prior `mentor.labVariable.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the host looked the variable up, whether or not it is set. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"failed"` (the request names no variable). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+| `value`   | string?  | The variable's value. `null` when the variable isn't set, or `ok` is `false`. |
+
+Hosts advertise this response in `host.init.capabilities`.
+
+### `host.setLabVariable.response`
+**Optional.** Reply to a prior `mentor.setLabVariable.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the host saved the variable. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view), `"failed"` (anything else, including a missing `name` or a `value` that isn't a string, number or boolean). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+
+Hosts advertise this response in `host.init.capabilities` only to lab
+authors (`userRole` `"labAuthor"`).
+
+### `host.evaluateActivity.response`
+**Optional.** Reply to a prior `mentor.evaluateActivity.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the activity's check ran and gave a result, whether it passed or not. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view), `"not_found"` (no activity with that alias and a check to run), `"timeout"` (no result within 5 minutes), `"failed"` (anything else, including a missing `alias` or that check already running). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
+| `passed`  | boolean? | `true` when the check passed, `false` when it didn't. `null` for an activity with no right answer, or when `ok` is `false`. |
+
+Hosts advertise this response in `host.init.capabilities` only to lab
+authors (`userRole` `"labAuthor"`).
+
+### `host.minutesRemaining.response`
+**Optional.** Reply to a prior `mentor.minutesRemaining.request`.
+
+| Field     | Type     | Notes |
+|-----------|----------|-------|
+| `ok`      | boolean  | `true` when the host has the time left. |
+| `reason`  | string?  | Failure category when `ok` is `false`. `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
+| `minutes` | number   | Minutes left before the lab ends. |
+
+Hosts advertise this response in `host.init.capabilities`.
+
 ### `host.auth.refresh`
 **Optional.** Push a refreshed launch token before the current one
 expires. The host sends this periodically (typically ~60 seconds
@@ -1197,6 +1275,10 @@ verification model.
 | `mentor.showInInstructions.request` | Optional | Ask the lab to scroll its instructions to a spot (a phrase, an image or an activity) and mark it. Reply via `host.showInInstructions.response`. |
 | `mentor.checkTask.request` | Optional | Ask the lab to check off (or uncheck) a task in its instructions. Reply via `host.checkTask.response`. |
 | `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
+| `mentor.labVariable.request` | Optional | Ask the lab for the value of one of its variables. Reply via `host.labVariable.response`. |
+| `mentor.setLabVariable.request` | Optional | Ask the lab to set one of its variables, for a lab author. Reply via `host.setLabVariable.response`. |
+| `mentor.evaluateActivity.request` | Optional | Ask the lab to run an activity's check, for a lab author. Reply via `host.evaluateActivity.response`. |
+| `mentor.minutesRemaining.request` | Optional | Ask the lab how many minutes are left. Reply via `host.minutesRemaining.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the student has selected. Reply via `host.environmentMouse.response`. |
 | `mentor.environmentWait.request` | Optional | Ask the lab to wait until the screen of the console the student has selected changes, or stops changing. Reply via `host.environmentWait.response`. |
@@ -1880,6 +1962,51 @@ rather than guess: a quote matching several tasks is `"ambiguous"`, and
 in a lab that requires tasks in order, a task with unchecked ones before
 it is refused, so check tasks in order.
 
+### `mentor.labVariable.request`
+**Optional.** Ask the lab for the value of one of its variables, the
+values instructions reference with `@lab.Variable(name)` and lab scripts
+set. Send it when `host.labVariable.response` is in
+`host.init.capabilities`.
+
+| Field  | Type   | Notes |
+|--------|--------|-------|
+| `name` | string | The variable's name, as in `@lab.Variable(name)`. |
+
+### `mentor.setLabVariable.request`
+**Optional.** Ask the lab to set one of its variables. The host saves it
+the way a lab script does, as text. Only for a lab author in author view;
+send it when `host.setLabVariable.response` is in
+`host.init.capabilities`.
+
+| Field   | Type                          | Notes |
+|---------|-------------------------------|-------|
+| `name`  | string                        | The variable's name, as in `@lab.Variable(name)`. |
+| `value` | string \| number \| boolean   | The value to save. The host stores it as text. |
+
+### `mentor.evaluateActivity.request`
+**Optional.** Ask the lab to run an activity's check, the way the
+student's check button does, and answer with its result. Only for a lab
+author in author view; send it when `host.evaluateActivity.response` is
+in `host.init.capabilities`.
+
+| Field   | Type   | Notes |
+|---------|--------|-------|
+| `alias` | string | The activity's alias, as in `@lab.Activity(alias)`. |
+
+The result is recorded as the student's, as if they had pressed the
+button, and sends no `host.activity.completed`. A check can take a
+while: the host waits up to 5 minutes for a result, then answers
+`"timeout"`, so allow at least that long before giving up on the
+response.
+
+### `mentor.minutesRemaining.request`
+**Optional.** Ask the lab how many minutes are left before it ends.
+Send it when `host.minutesRemaining.response` is in
+`host.init.capabilities`.
+
+No payload fields beyond the envelope; assign an `id` and expect the
+host to echo it on its `host.minutesRemaining.response`.
+
 ### `mentor.message.sent`
 **Optional.** Notification that the student posted a message. Useful
 for host-side unread-badge UX, analytics, or transcript capture. Safe
@@ -1948,12 +2075,30 @@ within a page are a lab-authoring concept and are not modeled here.
 | `currentPageIndex` | integer?                     | **Zero-based** index of the page the student is on. |
 | `totalPages`       | integer?                     | Total number of pages. |
 | `pageTitle`        | string?                      | The page's heading text, if it starts with one. When absent, display as `Page {currentPageIndex + 1}`. |
-| `pageInstructions` | string?                      | Current page body as **markdown**. Use this to ground mentor responses. |
+| `pageInstructions` | string?                      | The current page's **markdown source** as the author wrote it, tokens unresolved (such as `@lab.VirtualMachine(Win11).Username`), with `@lab.Variable(name)` and `@lab.Activity(alias)` references left as written. When the host can't split the source into the pages it shows (for example a replacement adds a page break), or for a page the source doesn't give (such as an external manual page), it sends the text the page shows instead. Use this to ground mentor responses. See **Instructions markdown** below. |
+| `tokens`           | `{ [token: string]: string }`? | The lab's replacement tokens and their values, keyed by the token as instructions write it, such as `{ "@lab.VirtualMachine(Win11).Username": "student1" }`. A token the lab shows as a link (such as a VM's select link) has its link text as its value. Includes VM and endpoint user names and passwords; cloud credential secrets are never in it. Fixed for the attempt: sent in `host.init`, and again with the machines when a view switch re-sends them in `host.context.update`. A `host.context.update` without it means unchanged; carry the last value forward, as for `machines`. |
 | `environment`      | `{ [key: string]: string }`? | Facts about the environment the student has selected. Well-known keys: `name` (display name), `os`, and for virtual machine labs `machine` (the selected VM's alias) and `endpoint` (the selected endpoint's alias, when the student is on an endpoint rather than the VM's own console). Hosts may add free-form keys (shell, cwd, last command, etc.). |
-| `machines`         | LabMachine[]?                | The lab's virtual machines the user can see, and each one's endpoints. For a student, a VM is listed when it or one of its endpoints is visible to them; a VM completely hidden from students is left out, so the mentor can't reveal it. For a user who can edit the lab, every VM is listed, as their console shows them. Sent in `host.init` only, since it is fixed for the lab attempt; a `host.context.update` without it means unchanged. Absent outside virtual machine labs. See below. |
+| `machines`         | LabMachine[]?                | The lab's virtual machines the user can see, and each one's endpoints. For a student, a VM is listed when it or one of its endpoints is visible to them; a VM completely hidden from students is left out, so the mentor can't reveal it. For a user who can edit the lab, every VM is listed, as their console shows them. Sent in `host.init`, and again in the `host.context.update` that follows a view switch, since the view decides which VMs show; any other `host.context.update` leaves it out, which means unchanged. Absent outside virtual machine labs. See below. |
 
 All fields are optional. Build your mentor to degrade gracefully when
 any one is missing, and to re-ground on every update.
+
+**Instructions markdown.** `pageInstructions`, `LabPage.instructions`
+and `host.labInstructions.response.source` use these conventions:
+
+- `@lab...` tokens, such as `@lab.VirtualMachine(Win11).Password`. Their
+  values are in `tokens`.
+- `@lab.Variable(name)`: a lab variable, read with
+  `mentor.labVariable.request`.
+- `@lab.Activity(alias)`: an activity (a question or a check), run with
+  `mentor.evaluateActivity.request`.
+- `+++text+++`: text the student can click to type into the console.
+- `- []` at the start of a line: a task the student ticks.
+- A line of `===` (also `====` or `= = =`, after up to 3 spaces): a
+  break between pages.
+
+A host may send rendered HTML in these fields, as older hosts did. The
+sample chat converts HTML to text.
 
 Each `LabMachine`:
 
@@ -1996,7 +2141,8 @@ Example:
   "currentPageIndex": 1,
   "totalPages": 4,
   "pageTitle": "List files in your home directory",
-  "pageInstructions": "# List files\n\nRun `ls -la` to see hidden files\u2026",
+  "pageInstructions": "# List files\n\nSign in as @lab.VirtualMachine(server).Username, then run +++ls -la+++ to see hidden files\u2026",
+  "tokens": { "@lab.VirtualMachine(server).Username": "student1", "@lab.VirtualMachine(server).Password": "Pa55w.rd" },
   "environment": { "name": "Ubuntu Server", "os": "ubuntu-22.04", "machine": "server", "endpoint": null },
   "machines": [
     {
