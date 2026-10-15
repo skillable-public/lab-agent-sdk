@@ -103,6 +103,24 @@ history is rewritten only then. Each call logs its cache
 reads and writes, from which a run's cost can be worked out, and a short
 hash of its system prompt and tools, which changes only when they do.
 
+Each session also keeps a running total of what its model calls used,
+replies and summaries alike: uncached input, cache reads, cache writes
+(five-minute and one-hour) and output tokens, with an estimated cost. It is
+saved with the conversation record in every session store, is never put in
+the model's context, and comes back with each reply's usage and with
+`GET /api/sessions/{id}`. Lab authors see it as a ring at the end of the
+hint line under the input, which fills as the context nears the summarize
+point and turns amber past three quarters of the way; hovering shows the
+context and the session total, and clicking opens a panel with the
+breakdown and a Summarize now button (`POST /api/sessions/{id}/summarize`,
+lab authors only). The cost comes from `Mentor:Claude:Prices:<model>`
+(`InputPerMTok`, `OutputPerMTok`, `CacheReadPerMTok`, `CacheWrite5mPerMTok`,
+`CacheWrite1hPerMTok`, in US dollars per million tokens, with an optional
+`LongContext` block that replaces them for a call whose whole input is above
+`LongContextAboveInputTokens`). Each call is costed at the prices in force
+when it was made, so editing them later doesn't change the total so far; a
+model with no entry shows tokens only.
+
 Command output stays in the conversation and is resent with every
 request, unlike a screenshot, so the chat sends only the first and last
 2,000 characters of a command's output, with a line saying how many were
