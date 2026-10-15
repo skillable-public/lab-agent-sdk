@@ -162,7 +162,7 @@ Concretely, what changes between the two modes:
 | Concern | Embed-only | Authenticated |
 |---|---|---|
 | Direct loads of your iframe URL | Anyone who learns the URL can use your mentor and consume its resources. | No `authToken` arrives; your backend refuses unauthenticated requests. |
-| `userId` / `userRole` / `userOrganizationId` / `labInstanceId` claims from postMessage | Unsigned hints — any embedder could fabricate them. | Cryptographically signed by Skillable, verifiable against the published JWKS. |
+| `userId` / `userRole` / `userOrganizationId` / `labInstanceId` claims from postMessage | Unsigned hints — any embedder could fabricate them. | Cryptographically signed by Skillable, verifiable against the published JWKS. `userRole` stays an unsigned view; the signed `role` claim bounds it (Section 3.2.2). |
 | Resuming a stored session | You trust whatever `sessionId` the iframe presents. | The verified `sub` claim proves session ownership before you honor the resume. |
 | Multi-tenant deployments (your mentor serves more than one Skillable customer or LMS) | No reliable way to distinguish them. | The verified `aud` claim identifies the customer unambiguously. |
 | Security-review answer to *"how do you authenticate inbound requests?"* | "We trust the iframe's postMessage." | "We verify RS256-signed JWTs against the issuer's published JWKS." |
@@ -184,7 +184,7 @@ with these claims:
 | `iss`           | Issuer — the Skillable environment URL, e.g. `https://labclient.labondemand.com`. |
 | `aud`           | Audience — your mentor application identifier, agreed at onboarding (typically the origin of your mentor URL). Reject tokens whose `aud` doesn't match. |
 | `sub`           | User identifier (same value as `host.init.userId`). |
-| `role`          | The user's role in this lab session (same value as `host.init.userRole`). One of `"student"`, `"instructor"`, `"labAuthor"` (extensible). Authoritative for authorization decisions. |
+| `role`          | The session's underlying role: the most the user may do in this lab session. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible). `"instructor"` is signed only for the lab's owner viewing their own lab; a share viewer or anonymous link holder is not signed as instructor. Authorize against this claim. `host.init.userRole` and `host.context.update.userRole` are the current view, which may be lower than this claim (a lab author viewing the mentor as a student shows as `"student"`) but never higher. Shape behaviour by the view. Trusting an unsigned `"student"` is safe because it only reduces what the user gets. The host enforces the student view's limits, such as hiding machines and credentials from students. |
 | `org_id`        | Organization identifier (same value as `host.init.userOrganizationId`). |
 | `org_name`      | Organization display name (same value as `host.init.userOrganizationName`). Optional — may be omitted by privacy-sensitive deployments that pass only `org_id`. |
 | `labInstanceId` | The lab instance identifier (same value as `host.init.labInstanceId`). Authoritative; prefer over the postMessage value. |
@@ -193,11 +193,13 @@ with these claims:
 | `jti`           | Unique token identifier — used for replay protection. |
 
 When `authToken` is present, the signed JWT claims are the
-authoritative form of `userId`, `userRole`, `userOrganizationId`, and
+authoritative form of `userId`, `userOrganizationId`, and
 `userOrganizationName`. The corresponding `host.init` fields are
 convenience hints for iframes that don't implement token verification;
 iframes that do verify SHOULD pull these values from the validated JWT
-rather than from the postMessage payload.
+rather than from the postMessage payload. `userRole` is different: it is
+the current view, not a copy of the `role` claim. See the `role` row
+above.
 
 Tokens are signed with a 2048-bit RSA private key managed by Skillable.
 The private key never leaves Skillable's key-management infrastructure.
@@ -659,7 +661,7 @@ host would have resumed.
 | `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. **Maximum 128 characters.** |
 | `userName`       | string?                        | Display-name hint. May be anonymized by the lab platform. |
 | `userId`         | string?                        | Opaque user id (identity hint, not a credential). When `authToken` is present, the JWT's `sub` claim is the authoritative form. |
-| `userRole`       | string?                        | The user's role *in this lab session*, not the totality of their account permissions. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible — receivers MUST tolerate unknown values). A lab author taking the lab to verify it should show as `"student"` during that run; the same person editing it should show as `"labAuthor"`. Identity hint, not a credential. When `authToken` is present, the JWT's `role` claim is the authoritative form. |
+| `userRole`       | string?                        | The user's current view *in this lab session*, not the totality of their account permissions. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible — receivers MUST tolerate unknown values). A lab author taking the lab to verify it should show as `"student"` during that run; the same person editing it should show as `"labAuthor"`. The current view, not a credential: it may be lower than the JWT's `role` claim, never higher. See the `role` claim in [Section 3.2.2](#322-the-launch-token). |
 | `userOrganizationId`   | string?                  | Opaque id for the user's organization. Identity hint, not a credential. When `authToken` is present, the JWT's `org_id` claim is the authoritative form. |
 | `userOrganizationName` | string?                  | Display name for the user's organization. Hosts MAY pass a friendly display name vs. the legal entity name (e.g., "Acme" rather than "Acme Holdings, Inc."), or omit this field entirely and pass only `userOrganizationId` for privacy-sensitive deployments. Iframes should be designed to work with id-only. |
 | `theme`          | `"light"` \| `"dark"` \| `"highcontrast"` | The lab's color mode. Apply immediately. Treat any other value as `"light"`. |
@@ -680,9 +682,10 @@ re-ground.
 | `context`  | [`LabContext`](#10-labcontext)   |
 | `userRole` | string? (same values as `host.init.userRole`) |
 
-`userRole` is present when the role the mentor should treat the user as
+`userRole` is present when the view the mentor should treat the user as
 has changed, which happens when a lab author switches view with
-`mentor.viewAs.request`. Absent means unchanged.
+`mentor.viewAs.request`. Absent means unchanged. The signed `role` claim
+does not change with it; see [Section 3.2.2](#322-the-launch-token).
 
 ### `host.hint.request`
 **Optional.** Ask the mentor to produce a proactive hint without the
@@ -1680,6 +1683,8 @@ exactly a student's reach: the student's machine catalog, and the
 student's rules for commands and credentials, even though the user could
 see more. It's not a role the mentor plays. After the switch the host
 sends `host.context.update` with the new `userRole` and machines. The
+signed `role` claim stays `"labAuthor"` (see
+[Section 3.2.2](#322-the-launch-token)). The
 mentor's own conversation still holds what it saw before, so a mentor
 should work only from the new context and not reveal anything the
 student view doesn't show.

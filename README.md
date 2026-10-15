@@ -85,7 +85,10 @@ to the resource name, `Mentor:Claude:Foundry:ApiKey` to its key, and
 
 Each request resends the whole conversation, so the Claude mentor caches
 its tools, system prompt and history (prompt caching works on both
-providers), leaving out only the newest screenshot. So that the system
+providers), leaving out the newest message from its first screenshot or
+long command output on, which saving changes once the mentor has seen
+it. A second cache breakpoint sits where the previous call put its own,
+so that call's entry is read back even after a long batched turn. So that the system
 prompt and tools stay the same all session, where the learner is (the
 instructions page, its text, the selected VM) and whether a run is going
 are told in notes on the conversation each time they change. Cache entries last
@@ -96,7 +99,9 @@ conversation is summarized in one step, once it passes
 of `SessionStore:MaxConversationBytes` (1.5 MB, which keeps it within a
 Cosmos DB item), down to `SummarizeToContextShare` (0.75), so the cached
 history is rewritten only then. Each call logs its cache
-reads and writes, from which a run's cost can be worked out.
+reads and writes, from which a run's cost can be worked out, and a short
+hash of its system prompt and tools, which should stay the same from
+call to call.
 
 Command output stays in the conversation and is resent with every
 request, unlike a screenshot, so the chat sends only the first and last
@@ -109,11 +114,12 @@ runs alike.
 The mentor can batch console actions that don't depend on seeing each
 result, such as filling in a form (click a field, type, Tab, type), in
 one reply, which saves a model turn per action. The chat runs them in
-order, and only the last one waits for the screen and brings it back.
-The first action that fails, or whose wait for the screen to change
-times out (a click that didn't land), skips the rest, and the mentor
-gets the screen as it stands. A batch holds at most 8 console actions;
-the chat skips any more.
+order, and only the last one brings the screen back, though each still
+waits as its `then` asks. The first action that fails, or whose wait for
+the screen to change times out (a click that didn't land), stops the
+batch: every call after it in the reply is skipped, whatever its tool,
+and the mentor gets the screen as it stands. A batch holds at most 8
+console actions; a 9th stops the batch the same way.
 
 ### Run mode
 
@@ -128,6 +134,14 @@ actions that change nothing, several times in a row), or the author
 presses Stop. Each result the mentor gets during a run ends with its
 time left and how full its context is (`Mentor:Claude:ContextTokens`,
 1000000 by default, the full window of Claude Opus 5.5). Students are never offered a run.
+
+The backend enforces that: it drops the run state the chat sends with a
+message or tool results, and refuses a run's end or continuation with
+403, unless the caller may drive runs. The `role` claim of the verified
+launch token decides when it has one. Without the claim, or without a
+token (`LaunchToken:ChatAgent:RequireToken` off), the posted lab context's `userRole` decides,
+and a session in which the backend has accepted a run before also
+passes, so an author's run carries on in student view.
 
 During a run the mentor's text between actions is one short line, or
 none; the summary it ends the run with is written out in full.
