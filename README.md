@@ -93,7 +93,7 @@ instructions page, its text, the selected VM) and whether a run is going
 are told in notes on the conversation each time they change, so that the
 system prompt and tools change only when the user's view or what the mentor
 may do changes. Cache entries last
-five minutes in chat and an hour during a run
+five minutes in chat and an hour during a lab author's run
 (`Mentor:Claude:RunCacheTtl`, `1h` or `5m`). The oldest part of a long
 conversation is summarized in one step, once it passes
 `Mentor:Claude:SummarizeAtContextShare` (0.9) of the model's context or
@@ -107,8 +107,8 @@ Each session also keeps a running total of what its model calls used,
 replies and summaries alike: uncached input, cache reads, cache writes
 (five-minute and one-hour) and output tokens, with an estimated cost. It is
 saved with the conversation record in every session store, is never put in
-the model's context, and comes back with each reply's usage and with
-`GET /api/sessions/{id}`. Lab authors see it as a ring at the end of the
+the model's context, and comes back, to a lab author only, with each
+reply's usage and with `GET /api/sessions/{id}`. Lab authors see it as a ring at the end of the
 hint line under the input, which fills as the context nears the summarize
 point and turns amber past three quarters of the way; hovering shows the
 context and the session total, and clicking opens a panel with the
@@ -139,27 +139,29 @@ visibly change, measured from just before it went out, before the next
 one goes, so typing doesn't race a Start menu that is still opening; as
 some keys, such as Tab, change little or nothing visible, that wait
 timing out doesn't stop the batch. Typed text (`type_text` or
-`type_credential`) that isn't the last has no `then`, so it is followed
-by a wait of up to 5 seconds for the screen to settle (1 second
-unchanged), so Enter doesn't race Start search results; that wait
-timing out or failing doesn't stop the batch either. The first action that fails, or whose `then` wait for
-the screen to change times out (a click that didn't land), stops the
-batch: every call after it in the reply is skipped, whatever its tool,
+`type_credential`) that isn't the last and has no `then` of its own
+(`type_credential` never has one) is followed by a wait of up to 5
+seconds for the screen to settle (1 second unchanged), so Enter doesn't
+race Start search results; that wait timing out or failing doesn't stop
+the batch either. The first action that fails, or a `press_keys` or
+`use_mouse` whose `then` wait for the screen to change times out (a
+click that didn't land), stops the batch: every call after it in the reply is skipped, whatever its tool,
 and the mentor gets the screen as it stands. Before anything runs, the
 chat checks every console action in the reply against rules it can see
 up front: a `use_mouse` action the tool's schema offers, the fields each
 action needs (`x` and `y`, `to_x` and `to_y` for a drag, `keys`, `text`),
-at most 8 console actions, and a click only as the first of them, since
-it is aimed at a screenshot the earlier actions may have changed. If any
+at most 8 console actions, and a mouse action of any kind only as the
+first of them, since it is aimed at a screenshot the earlier actions may
+have changed. If any
 rule is broken, none of the reply's calls run: each gets an error naming
 every problem, so the mentor can fix the whole batch in one go.
 
 ### Guided walkthroughs
 
 The Claude mentor can guide a learner through steps they do themselves
-without asking them to report each one in chat. For each step it points
-at the instruction, marks the control on the console with a Done button
-(or shows a tour), then calls `wait_for_learner`, which stays pending in
+without asking them to report each one in chat. For each step it marks
+the control on the console with a Done button (or shows a tour), then
+calls `wait_for_learner`, which stays pending in
 the chat until the learner clicks Done, moves through the tour, ticks a
 task, or a check command the mentor gave starts passing (run every few
 seconds, like `run_command`), up to a timeout. The chat shows what it is
@@ -193,7 +195,10 @@ acts where that helps them learn or gets them unstuck, such as showing
 how something is done, a step or two past an obstacle, or undoing a mess
 to restore a clean starting point, and then hands back. For that it may
 start a walkthrough run on a learner's behalf, so a student's mentor is
-offered `start_run` with walkthrough as its only mode.
+offered `start_run` with walkthrough as its only mode. A student's run
+goes on for at most `Mentor:Run:DefaultMinutes`: the backend records
+when each run starts, and past that it drops the run state the chat
+sends and refuses to continue the run with 403.
 
 Shortcut runs are for lab authors only. The chat refuses a shortcut
 `start_run`, or picking up a shortcut run, for anyone who isn't the
@@ -203,8 +208,12 @@ shortcut run with 403, unless the caller is a lab author. The `role`
 claim of the verified launch token decides when it has one. Without the
 claim, or without a token (`LaunchToken:ChatAgent:RequireToken` off),
 the posted lab context's `userRole` decides, and a session in which the
-backend has accepted a shortcut run before also passes, so an author's
-shortcut run carries on in student view.
+backend has accepted a shortcut run before also passes, so an author
+keeps that access in student view. A context posted with a token whose
+`role` claim isn't `labAuthor` can't claim to be an author's: the
+backend lowers its `userRole` to the token's. The chat pauses a shortcut
+run when the author switches to student view, for them to resume back in
+author view.
 
 During a run the mentor's text between actions is one short line, or
 none; the summary it ends the run with is written out in full.

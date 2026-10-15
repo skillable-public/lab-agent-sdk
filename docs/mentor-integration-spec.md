@@ -790,6 +790,11 @@ envelope `id` of its own.
 A mentor guiding the student through tasks they tick themselves can
 take a tick as the cue to confirm that step and move on.
 
+**Secret hygiene.** Same caution that applies to
+`LabContext.pageInstructions` applies to `text`: a task line may
+contain sample credentials. Redact obvious secrets before sending it
+to upstream LLMs or persistent storage.
+
 ### `host.environmentScreenshot.response`
 **Optional.** Reply to a prior `mentor.environmentScreenshot.request`.
 The host correlates request/response by echoing the request's envelope
@@ -1066,7 +1071,8 @@ console now shown; a wait that already finished keeps its outcome.
 Because of that wait, set the
 iframe-side timeout for a request with `screenshot` or `waitUntil` to
 30 seconds plus `timeoutSeconds`, plus about 0.3 seconds per character
-of text sent just before it, so queued text doesn't time you out first.
+of text sent just before it and 10 seconds for each text or paste
+queued ahead of it, so queued text doesn't time you out first.
 
 | Field      | Type     | Notes |
 |------------|----------|-------|
