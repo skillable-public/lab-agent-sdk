@@ -1223,11 +1223,12 @@ authors (`userRole` `"labAuthor"`).
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the activity's check ran and gave a result, whether it passed or not. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view, or the lab is a preview), `"not_found"` (no activity with that alias and a check to run), `"timeout"` (only when no result comes within 5 minutes), `"failed"` (anything else, including a missing `alias`, the activity's check button disabled because a check is already running or the activity takes no more attempts, the check not starting, or the check ending without a result, as when the lab hits an error running it). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view, or the lab is a preview), `"not_found"` (no activity with that alias and a check to run), `"not_answered"` (a question activity with no answer chosen, which the lab judges on that answer, so it is not evaluated), `"timeout"` (only when no result comes within 5 minutes), `"failed"` (anything else, including a missing `alias`, the activity's check button disabled because a check is already running or the activity takes no more attempts, the check not starting, or the check ending without a result, as when the lab hits an error running it). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `passed`  | boolean? | `true` when the check passed, `false` when it didn't. `null` for an activity with no right answer; absent or `null` when `ok` is `false`. |
+| `kind`    | string?  | The activity's kind: `"question"` (multiple choice or short answer), `"script"`, `"code"` or `"vision"` (AI Vision). Given once the activity is found, whether or not it was evaluated; absent or `null` when the host can't tell. Receivers must tolerate unknown values. |
 
-The host answers a `"not_supported"`, `"not_found"` or `"failed"` case
+The host answers a `"not_supported"`, `"not_found"`, `"not_answered"` or `"failed"` case
 at once rather than waiting for the 5 minutes to pass.
 
 Hosts advertise this response in `host.init.capabilities` only to lab
