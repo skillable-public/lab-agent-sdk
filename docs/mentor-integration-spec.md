@@ -1002,7 +1002,13 @@ action still answers `ok: true`, and `waited` and `screenshot` answer
 `ok: false` with reason `"failed"` and the message `"The input was dropped
 before it was sent."` or `"The input had not been sent after 30
 seconds."`, without waiting or capturing. An action that hasn't gone out
-after 30 seconds is not sent later. Because of that wait, set the
+after 30 seconds is not sent later. If the student switches to another
+console before the wait or the screenshot is done, the action still
+answers `ok: true`, and `waited` and `screenshot` answer `ok: false` with
+reason `"not_available"` and the message `"The student switched consoles
+before the screen could be watched."`, without watching or capturing the
+console now shown; a wait that already finished keeps its outcome.
+Because of that wait, set the
 iframe-side timeout for a request with `screenshot` or `waitUntil` to
 about 30 seconds more than `timeoutSeconds`.
 
