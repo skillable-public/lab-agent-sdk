@@ -91,8 +91,8 @@ it. A second cache breakpoint sits where the previous call put its own,
 so that call's entry is read back even after a long batched turn. Where the learner is (the
 instructions page, its text, the selected VM) and whether a run is going
 are told in notes on the conversation each time they change, so that the
-system prompt and tools stay the same all session, except when the author
-switches view, or a run first starts in student view. Cache entries last
+system prompt and tools change only when the user's view or what the mentor
+may do changes. Cache entries last
 five minutes in chat and an hour during a run
 (`Mentor:Claude:RunCacheTtl`, `1h` or `5m`). The oldest part of a long
 conversation is summarized in one step, once it passes
@@ -101,9 +101,7 @@ of `SessionStore:MaxConversationBytes` (1.5 MB, which keeps it within a
 Cosmos DB item), down to `SummarizeToContextShare` (0.75), so the cached
 history is rewritten only then. Each call logs its cache
 reads and writes, from which a run's cost can be worked out, and a short
-hash of its system prompt and tools, which should stay the same from
-call to call, except when the author switches view, or a run first
-starts in student view.
+hash of its system prompt and tools, which changes only when they do.
 
 Command output stays in the conversation and is resent with every
 request, unlike a screenshot, so the chat sends only the first and last
