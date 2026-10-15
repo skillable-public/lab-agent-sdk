@@ -1097,7 +1097,7 @@ failed action.
 | Field      | Type     | Notes |
 |------------|----------|-------|
 | `ok`       | boolean  | `true` when the screen did what was asked in time: changed, for `"changes"`, or stopped changing, for `"settles"`. |
-| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"stale"` (the `region` is on a screenshot that no longer matches the console, as for a spot; see [Spots on a screenshot](#spots-on-a-screenshot)), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"stale"` (the `region` is on a screenshot that no longer matches the console; see **Regions** below), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
 | `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (a screenshot, as set out under `until` in [`mentor.environmentWait.request`](#mentorenvironmentwaitrequest)) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for `"settles"`. Receivers must tolerate unknown values. |
@@ -1587,9 +1587,10 @@ name places on the console by where they are on a screenshot from
   selected console since the page loaded, when the student has switched
   to another console, or when the console's resolution has changed
   since. Take a new screenshot, find the spot on it again, and retry.
-- **Before the student's input.** A spot also answers `"stale"` once
-  the student has used the console (mouse, keyboard or touch) since
-  the screenshot, since what they did may have moved what the spot
+- **Before the student's input.** A spot to click or mark, in
+  `mentor.environmentMouse.request` or `mentor.showInEnvironment.request`,
+  also answers `"stale"` once the student has used the console (mouse,
+  keyboard or touch) since the screenshot, since what they did may have moved what the spot
   pointed at. The `message` is "The student has used the console since
   your screenshot. Take a new one and find the spot on it."
 - **Screenshots returned with an action count.** A `screenshot` returned
@@ -1692,7 +1693,8 @@ screenshot that no longer matches the console answers `"stale"` (see
 student using the console doesn't make it stale, since that is often
 what the wait is for. It is compared in more detail than the whole
 screen, and counts as changed once a small patch of it does, however
-large the region: a word typed counts, a blinking text cursor doesn't.
+large the region: a word typed counts. A region too small for that,
+such as a checkbox, counts as changed once a share of it does.
 A control in it lighting up on hover counts too, so after a click watch
 a region away from the spot clicked.
 A wait on a region until it changes measures from the latest
