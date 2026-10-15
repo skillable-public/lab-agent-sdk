@@ -1036,7 +1036,7 @@ failed action.
 | `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
-| `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (the mentor's latest screenshot of this console) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for `"settles"`. Receivers must tolerate unknown values. |
+| `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (the latest screenshot of this console, which is any screenshot the lab page took of it, not only one returned to the mentor) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for `"settles"`. Receivers must tolerate unknown values. |
 
 A `"timeout"` isn't an error so much as an answer: the screen stayed as
 it was, or kept moving. Take a screenshot to see where things stand.
@@ -1516,6 +1516,10 @@ name places on the console by where they are on a screenshot from
   with `host.environmentKeys.response` or `host.environmentMouse.response`
   (see [Screenshot after an action](#screenshot-after-an-action)) is
   recorded the same way, and becomes the latest screenshot.
+- **So does any screenshot the lab page takes.** The latest screenshot
+  is the latest one the lab page took of the console for any reason,
+  not only one returned to the mentor, so a spot is read against it and
+  a `"changes"` wait measures from it.
 - **The screen at its own size.** The Skillable lab platform's
   screenshots are the console's screen at the VM's resolution, whatever
   size it's shown at on the page.
