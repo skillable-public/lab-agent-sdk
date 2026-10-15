@@ -663,7 +663,7 @@ Your iframe, after resolving the session:
 | `host.viewAs.response`               | Optional  | Reply to `mentor.viewAs.request`: whether the view changed. |
 | `host.labVariable.response`          | Optional  | Reply to `mentor.labVariable.request` with the variable's value. |
 | `host.setLabVariable.response`       | Optional  | Reply to `mentor.setLabVariable.request`: whether the variable was saved. |
-| `host.evaluateActivity.response`     | Optional  | Reply to `mentor.evaluateActivity.request` with the activity check's result. |
+| `host.evaluateActivity.response`     | Optional  | Reply to `mentor.evaluateActivity.request` with the activity's result. |
 | `host.minutesRemaining.response`     | Optional  | Reply to `mentor.minutesRemaining.request` with the minutes left in the lab. |
 
 ### `host.init`
@@ -1222,10 +1222,10 @@ authors (`userRole` `"labAuthor"`).
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
-| `ok`      | boolean  | `true` when the activity's check ran and gave a result, whether it passed or not. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view, or the lab is a preview), `"not_found"` (no activity with that alias and a check to run), `"not_answered"` (a question activity with no answer chosen, which the lab judges on that answer, so it is not evaluated), `"timeout"` (only when no result comes within 5 minutes), `"failed"` (anything else, including a missing `alias`, the activity's check button disabled because a check is already running or the activity takes no more attempts, the check not starting, or the check ending without a result, as when the lab hits an error running it). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `ok`      | boolean  | `true` when the activity was evaluated and gave a result, whether it passed or not. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_supported"` (the user isn't a lab author in author view, or the lab is a preview), `"not_found"` (no activity with that alias that can be evaluated), `"not_answered"` (a question activity with no answer chosen, which the lab judges on that answer, so it is not evaluated), `"timeout"` (only when no result comes within 5 minutes), `"failed"` (anything else, including a missing `alias`, the activity's button disabled because it is already being evaluated or takes no more attempts, the evaluation not starting, or the evaluation ending without a result, as when the lab hits an error running a script). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
-| `passed`  | boolean? | `true` when the check passed, `false` when it didn't. `null` for an activity with no right answer; absent or `null` when `ok` is `false`. |
+| `passed`  | boolean? | `true` when the activity passed, `false` when it didn't. `null` for an activity with no right answer; absent or `null` when `ok` is `false`. |
 | `kind`    | string?  | The activity's kind: `"question"` (multiple choice or short answer), `"script"`, `"code"` or `"vision"` (AI Vision). Given once the activity is found, whether or not it was evaluated; absent or `null` when the host can't tell. Receivers must tolerate unknown values. |
 
 The host answers a `"not_supported"`, `"not_found"`, `"not_answered"` or `"failed"` case
@@ -1285,7 +1285,7 @@ verification model.
 | `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.labVariable.request` | Optional | Ask the lab for the value of one of its variables. Reply via `host.labVariable.response`. |
 | `mentor.setLabVariable.request` | Optional | Ask the lab to set one of its variables, for a lab author. Reply via `host.setLabVariable.response`. |
-| `mentor.evaluateActivity.request` | Optional | Ask the lab to run an activity's check, for a lab author. Reply via `host.evaluateActivity.response`. |
+| `mentor.evaluateActivity.request` | Optional | Ask the lab to evaluate an activity, for a lab author. Reply via `host.evaluateActivity.response`. |
 | `mentor.minutesRemaining.request` | Optional | Ask the lab how many minutes are left. Reply via `host.minutesRemaining.response`. |
 | `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
 | `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the student has selected. Reply via `host.environmentMouse.response`. |
@@ -1996,8 +1996,9 @@ send it when `host.setLabVariable.response` is in
 | `value` | string \| number \| boolean   | The value to save. The host stores it as text. |
 
 ### `mentor.evaluateActivity.request`
-**Optional.** Ask the lab to run an activity's check, the way the
-student's check button does, and answer with its result. Only for a lab
+**Optional.** Ask the lab to evaluate an activity (run its check, or
+submit a question's chosen answer), the way the student's button for it
+does, and answer with its result. Only for a lab
 author in author view; send it when `host.evaluateActivity.response` is
 in `host.init.capabilities`.
 
@@ -2006,7 +2007,7 @@ in `host.init.capabilities`.
 | `alias` | string | The activity's alias, as in `@lab.Activity(alias)`. |
 
 The result is recorded as the student's, as if they had pressed the
-button, and sends no `host.activity.completed`. A check can take a
+button, and sends no `host.activity.completed`. An evaluation can take a
 while: the host waits up to 5 minutes for a result, then answers
 `"timeout"`, so allow at least that long before giving up on the
 response.
@@ -2102,7 +2103,7 @@ and `host.labInstructions.response.source` use these conventions:
   values are in `tokens`.
 - `@lab.Variable(name)`: a lab variable, read with
   `mentor.labVariable.request`.
-- `@lab.Activity(alias)`: an activity (a question or a check), run with
+- `@lab.Activity(alias)`: an activity (a question or a check), evaluated with
   `mentor.evaluateActivity.request`.
 - `+++text+++`: text the student can click to type into the console.
 - `++text++`: text the student can copy.
