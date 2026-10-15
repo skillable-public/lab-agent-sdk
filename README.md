@@ -230,8 +230,8 @@ A run is a **walkthrough**, by default, or a **shortcut** run, which the
 mentor starts when the author asks for one (for example "do a shortcut
 run of this lab"). A walkthrough follows the instructions as written,
 which tests the instructions. A shortcut run tests the environment
-instead: the mentor reads the instructions, posts a list of checkpoints
-(the end state each section produces, such as a resource group in a
+instead: the mentor reads the instructions, posts its checkpoints as its
+plan (the end state each section produces, such as a resource group in a
 region or a VM running with a port open), and reaches each by the
 fastest path, preferring a command line to clicking through a portal.
 It builds the real thing rather than making a check pass, proves each
@@ -242,6 +242,22 @@ keeps its mode.
 
 Run mode is behavior of this sample mentor, not part of the integration
 contract.
+
+### Plans
+
+For work of three or more steps, in a run or not, the Claude mentor
+shows its plan with `update_plan`: a checklist at the end of the chat,
+above the line saying it is working out its next step, with each step
+not started, in progress, done, skipped or failed. The mentor sends the
+whole list with its first action and again as steps start and end, in
+the same reply as an action, so a plan costs no extra model turn. The
+chat answers it at once, and nothing reaches the lab. When the turn or
+the run ends, the checklist folds into a line such as "Plan: 4 of 5
+steps done", in the run's end line for a run, which expands to each
+step. A paused run's plan shows again when the run resumes. The updates
+are in the stored conversation, so a reload rebuilds the folded plan
+from the latest one. This is behavior of this sample mentor, not part
+of the integration contract.
 
 ### Session storage
 
