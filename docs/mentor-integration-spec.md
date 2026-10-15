@@ -1021,7 +1021,7 @@ has a console to press keys in.
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text or earlier input still going out). It says nothing about what the action did; ask for `screenshot`, or take a screenshot, to see. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot, or a `waitUntil` region, is on a screenshot that no longer matches the console, see [Spots on a screenshot](#spots-on-a-screenshot), or, with `checkTarget`, the screen around the spot has changed since it; nothing is sent), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot, or a `waitUntil` region, is on a screenshot that no longer matches the console, see [Spots on a screenshot](#spots-on-a-screenshot), or, with `checkTarget`, the screen around the spot, or a drag's end, has changed since it; nothing is sent), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the action, as described under [Screenshot after an action](#screenshot-after-an-action). |
 | `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
@@ -1619,7 +1619,7 @@ web page.
 | `toX`, `toY`       | number?  | Drag only, and required for it: where the drag ends, on the same screenshot. |
 | `direction`        | string?  | Scroll only: `"up"` or `"down"`. Defaults to `"down"`. |
 | `amount`           | integer? | Scroll only: how many wheel notches, 1 to 20. Defaults to 1. |
-| `checkTarget`      | boolean? | `true` to refuse the action as `"stale"`, sending nothing, when the screen around its spot has changed since the screenshot. See **Check the target** below. Defaults to `false`. |
+| `checkTarget`      | boolean? | `true` to refuse the action as `"stale"`, sending nothing, when the screen around its spot, or a drag's end, has changed since the screenshot. See **Check the target** below. Defaults to `false`. |
 | `screenshot`       | boolean? | `true` to get the screen back with the response, once it settles after the action. See [Screenshot after an action](#screenshot-after-an-action). Defaults to `false`. |
 | `waitUntil`        | object?  | `{ until, timeoutSeconds?, quietSeconds?, region? }`: wait for the screen to change or settle after the action, before answering and before any screenshot. See [Screenshot after an action](#screenshot-after-an-action). |
 
@@ -1634,13 +1634,15 @@ in the order the requests arrive, with the same rules for input dropped
 before it goes out.
 
 **Check the target.** With `checkTarget: true`, the host first compares
-a 24 by 24 pixel patch of the screenshot around the spot (a drag's
-start) with the live screen. If it has changed beyond a little, the
+a 24 by 24 pixel patch of the screenshot around the spot, and around a
+drag's end, with the live screen. If it has changed beyond a little, the
 request answers `"stale"` with the message "The screen around your spot
 has changed since your screenshot. Take a new one and find the spot on
 it." and nothing is sent. That lets a mentor send several clicks on
 stable parts of the screen from one screenshot, and stop as soon as one
-of them has moved. Where the host kept no copy of the screenshot's
+of them has moved. The comparison is made when the host takes the
+request, before input queued ahead of it goes out, so it protects only
+actions sent one at a time, each after the previous one's answer. Where the host kept no copy of the screenshot's
 screen to compare with, the action goes as it would without
 `checkTarget`.
 
@@ -1687,7 +1689,10 @@ region `mentor.showInEnvironment.request` outlines: one off the
 screenshot answers `"failed"`, and one on a screenshot that no longer
 matches the console answers `"stale"` (see
 [Spots on a screenshot](#spots-on-a-screenshot)). It is sampled finer
-than the whole screen, and counts as changed once about 2% of it has.
+than the whole screen, and counts as changed once about 5% of it has,
+so the mouse pointer passing through doesn't count but a control in it
+lighting up on hover does: after a click, watch a region away from the
+spot clicked.
 A wait on a region until it changes measures from the latest
 screenshot's copy of the region.
 
