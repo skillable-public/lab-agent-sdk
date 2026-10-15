@@ -1000,12 +1000,14 @@ that came before the wait began still counts; `measuredFrom` is `"now"`.
 
 Where the console queues the action, such as behind text still being
 typed, the wait and the screenshot start only once the action has gone
-out. If it is dropped first, or hasn't gone out after 30 seconds, the
-action still answers `ok: true`, and `waited` and `screenshot` answer
-`ok: false` with reason `"failed"` and the message `"The input was dropped
-before it was sent."` or `"The input had not been sent after 30
-seconds."`, without waiting or capturing. An action that hasn't gone out
-after 30 seconds is not sent later. If the student switches to another
+out. It gets 30 seconds to go out, on top of the time the input queued
+ahead of it (typed text and pastes) can take. If it is dropped first, or
+hasn't gone out by then, the action still answers `ok: true`, and
+`waited` and `screenshot` answer `ok: false` with reason `"failed"` and
+the message `"The input was dropped before it was sent."` or `"The input
+had not been sent after N seconds."`, where N is the seconds actually
+waited, without waiting or capturing. An action that hasn't gone out by
+then is not sent later. If the student switches to another
 console before the wait or the screenshot is done, the action still
 answers `ok: true`, and `waited` and `screenshot` answer `ok: false` with
 reason `"not_available"` and the message `"The student switched consoles
@@ -1013,7 +1015,8 @@ before the screen could be watched."`, without watching or capturing the
 console now shown; a wait that already finished keeps its outcome.
 Because of that wait, set the
 iframe-side timeout for a request with `screenshot` or `waitUntil` to
-about 30 seconds more than `timeoutSeconds`.
+30 seconds plus `timeoutSeconds`, plus about 0.3 seconds per character
+of text sent just before it, so queued text doesn't time you out first.
 
 | Field      | Type     | Notes |
 |------------|----------|-------|
@@ -1203,9 +1206,10 @@ environment. This is the canonical mentor-driven side effect (e.g.,
 (the focused input, the active terminal, etc.); your iframe does not
 select a target.
 
-The Skillable lab platform types the text as key presses, not through
-the clipboard. It queues behind input sent before it, and never
-replaces text still going out.
+On Spark consoles, the Skillable lab platform types the text as key
+presses, not through the clipboard. It queues behind input sent before
+it, and never replaces text still going out. Other consoles take it the
+way they take typed text today.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
