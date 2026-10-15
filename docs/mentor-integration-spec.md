@@ -1689,10 +1689,10 @@ region `mentor.showInEnvironment.request` outlines: one off the
 screenshot answers `"failed"`, and one on a screenshot that no longer
 matches the console answers `"stale"` (see
 [Spots on a screenshot](#spots-on-a-screenshot)). It is sampled finer
-than the whole screen, and counts as changed once about 5% of it has,
-so the mouse pointer passing through doesn't count but a control in it
-lighting up on hover does: after a click, watch a region away from the
-spot clicked.
+than the whole screen, and counts as changed once about 5% of it has.
+The mouse pointer moving into a small region, or a control in it
+lighting up on hover, can be that much, so after a click watch a region
+away from the spot clicked.
 A wait on a region until it changes measures from the latest
 screenshot's copy of the region.
 
