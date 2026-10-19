@@ -250,7 +250,9 @@ and do each step in the console as the instructions tell the learner
 to, with only the machines, endpoints
 and credentials a learner has: a step that needs more fails rather than
 being worked around. A step that doesn't work as written gets a proposed
-fix, and the run ends with one line per page, pass or fail. In a lab
+fix. The run ends with a summary of the issues found, most serious
+first, each with its page and whether a fix was proposed or what the
+author needs to do, then one line per page, pass or fail. In a lab
 walkthrough the author follows along on screen: the mentor marks each
 spot before it acts there, with a note saying what it's doing and why. A
 lab test goes as fast as the instructions allow, with no marks. Both run
