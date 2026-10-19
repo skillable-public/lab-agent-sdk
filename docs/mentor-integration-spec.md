@@ -1338,14 +1338,23 @@ issues an incrementing 64-bit integer); treat it as a scope key for
 your own storage, never as a credential or as a sessionId.
 
 ### `mentor.gotoInstructionsPage`
-**Optional.** Ask the lab to navigate to a specific page of
-instructions. Equivalent to the learner clicking Previous / Next enough
-times to land on that page. Your mentor does not need (and should not
-assume) any DOM selectors inside the instructions content.
+**Optional.** Ask the lab to turn the instructions to a specific page.
+Equivalent to the learner clicking Previous / Next enough times to land
+on that page. Your mentor does not need (and should not assume) any DOM
+selectors inside the instructions content.
+
+**It doesn't take the learner's attention unless asked.** By default the
+host only turns the page, and the learner stays on what they are looking
+at: where the instructions and the mentor take turns in the same space,
+as on the Skillable lab platform's tab strip, the learner stays with the
+mentor. Pass `show: true` to bring the instructions into view on that
+page too, such as when the learner asks to see it. To point at a spot on
+a page, use `mentor.showInInstructions`.
 
 | Field    | Type     | Notes |
 |----------|----------|-------|
 | `index`  | integer  | **Zero-based** target page index (same frame of reference as `LabContext.currentPageIndex`). Out-of-range values are ignored. |
+| `show`   | boolean? | `true` to bring the instructions into view on the page as well. Defaults to `false`: the page turns and nothing else changes for the learner. |
 
 ### `mentor.sendTextToEnvironment`
 **Optional.** Ask the lab to type text into the active lab

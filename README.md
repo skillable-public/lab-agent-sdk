@@ -244,8 +244,10 @@ An author checks the lab as a learner will meet it with `/lab
 walkthrough` or `/lab test`, each optionally with pages, such as `/lab
 test 3-5`. The chat sends either as the request it stands for, such as
 "Test pages 3 to 5 as a learner would, …", and the mentor starts a **lab
-walkthrough** or a **lab test** run. Both do each step in the console as
-the instructions tell the learner to, with only the machines, endpoints
+walkthrough** or a **lab test** run. Both turn the instructions to each
+page as a learner would, without taking the author away from the chat,
+and do each step in the console as the instructions tell the learner
+to, with only the machines, endpoints
 and credentials a learner has: a step that needs more fails rather than
 being worked around. A step that doesn't work as written gets a proposed
 fix, and the run ends with one line per page, pass or fail. In a lab
