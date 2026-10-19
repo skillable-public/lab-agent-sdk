@@ -198,14 +198,14 @@ presses Stop. Each result the mentor gets during a run ends with its
 time left and how full its context is (`Mentor:Claude:ContextTokens`,
 1000000 by default, the full window of Claude Opus 5.5).
 
-In student view the mentor coaches rather than doing the lab's learning
+In learner view the mentor coaches rather than doing the lab's learning
 work: it never completes the learner's tasks or checks off tasks they
 didn't do, and when asked to do it for them it offers to guide them
 through it instead (marks, tours, hints, checking their work). It still
 acts where that helps them learn or gets them unstuck, such as showing
 how something is done, a step or two past an obstacle, or undoing a mess
 to restore a clean starting point, and then hands back. For that it may
-start a walkthrough run on a learner's behalf, so a student's mentor is
+start a walkthrough run on a learner's behalf, so a learner's mentor is
 offered `start_run` with walkthrough as its only mode.
 
 Shortcut runs are for lab authors only. The chat refuses a shortcut
@@ -217,10 +217,10 @@ claim of the verified launch token decides when it has one. Without the
 claim, or without a token (`LaunchToken:ChatAgent:RequireToken` off),
 the posted lab context's `userRole` decides, and a session in which the
 backend has accepted a shortcut run before also passes, so an author
-keeps that access in student view. A context posted with a token whose
+keeps that access in learner view. A context posted with a token whose
 `role` claim isn't `labAuthor` can't claim to be an author's: the
 backend lowers its `userRole` to the token's. The chat pauses a shortcut
-run when the author switches to student view, for them to resume back in
+run when the author switches to learner view, for them to resume back in
 author view.
 
 During a run the mentor's text between actions is one short line, or
@@ -265,11 +265,11 @@ contract.
 
 For a lab author, the Claude mentor proposes a fix to a step of the
 instructions that won't work as written, such as a key combination the
-student's own computer or browser takes, with
+learner's own computer or browser takes, with
 `propose_instruction_edit`, once per problem. The chat shows a card with
 the step as it reads now beside the replacement and why, with **Copy new
 text** and **Dismiss**: the author pastes the text into the lab's
-instructions themselves. Students are never offered the tool, and the
+instructions themselves. Learners are never offered the tool, and the
 chat refuses it outside author view. A reload redraws the cards from the
 stored conversation. This is behavior of this sample mentor, not part of
 the integration contract.

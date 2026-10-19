@@ -21,7 +21,7 @@ This spec covers:
 
 ## 1. Overview
 
-The Skillable lab platform runs hands-on labs — a student gets a live
+The Skillable lab platform runs hands-on labs — a learner gets a live
 environment (a VM, a web app, a terminal) alongside a sidebar with tabs
 such as **Instructions**, **Resources**, and **Mentor**. Your application
 is embedded as an `<iframe>` inside the Mentor tab.
@@ -41,7 +41,7 @@ contract defined in this document.
 - Embeds your iframe at the right time, with the URL parameters you need
   (theme, user identity hints).
 - Sends lab context to your iframe: which lab, which instructions page
-  the student is on, facts about the environment (OS, shell, cwd, etc.).
+  the learner is on, facts about the environment (OS, shell, cwd, etc.).
 - Honors your requests to type text into the lab environment and
   navigate to specific instructions pages — if it supports them.
 - Cleans up the iframe when the lab session ends.
@@ -184,7 +184,7 @@ with these claims:
 | `iss`           | Issuer — the Skillable environment URL, e.g. `https://labclient.labondemand.com`. |
 | `aud`           | Audience — your mentor application identifier, agreed at onboarding (typically the origin of your mentor URL). Reject tokens whose `aud` doesn't match. |
 | `sub`           | User identifier (same value as `host.init.userId`). |
-| `role`          | The session's underlying role: the most the user may do in this lab session. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible). `"instructor"` is signed only for the lab's owner viewing their own lab; a share viewer or anonymous link holder is not signed as instructor. Authorize against this claim. `host.init.userRole` and `host.context.update.userRole` are the current view, which may be lower than this claim (a lab author viewing the mentor as a student shows as `"student"`) but never higher. Shape behaviour by the view. Trusting an unsigned `"student"` is safe because it only reduces what the user gets. The host enforces the student view's limits, such as hiding machines and credentials from students. |
+| `role`          | The session's underlying role: the most the user may do in this lab session. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible). `"instructor"` is signed only for the lab's owner viewing their own lab; a share viewer or anonymous link holder is not signed as instructor. Authorize against this claim. `host.init.userRole` and `host.context.update.userRole` are the current view, which may be lower than this claim (a lab author viewing the mentor as a learner shows as `"student"`) but never higher. Shape behaviour by the view. Trusting an unsigned `"student"` is safe because it only reduces what the user gets. The host enforces the learner view's limits, such as hiding machines and credentials from learners. |
 | `org_id`        | Organization identifier (same value as `host.init.userOrganizationId`). |
 | `org_name`      | Organization display name (same value as `host.init.userOrganizationName`). Optional — may be omitted by privacy-sensitive deployments that pass only `org_id`. |
 | `labInstanceId` | The lab instance identifier (same value as `host.init.labInstanceId`). Authoritative; prefer over the postMessage value. |
@@ -333,7 +333,7 @@ Skillable applies a `sandbox` attribute of roughly
 is present so your iframe can open external links itself (via
 `window.open(url)` or an `<a target="_blank">` in rendered chat content);
 there is no protocol message for "open a URL in a new tab" — render a
-normal anchor and let the student click it.
+normal anchor and let the learner click it.
 
 Do not design features that require `allow-top-navigation`,
 `allow-popups-to-escape-sandbox`, or other high-risk flags — Skillable
@@ -408,9 +408,9 @@ iframe's perspective. Treat it accordingly:
   patterns before sending to upstream LLM providers, and document your
   retention behavior to Skillable during onboarding.
   `LabContext.tokens` holds the lab's VM, endpoint, cloud credential
-  and cloud portal user names and passwords the student is given, and
-  the student's own name (the Lab Client leaves out their email and
-  external id). These are lab data the student is
+  and cloud portal user names and passwords the learner is given, and
+  the learner's own name (the Lab Client leaves out their email and
+  external id). These are lab data the learner is
   shown, not secrets, so a mentor may send them to its model; the
   sample does. Keep redacting other secret patterns.
 
@@ -471,7 +471,7 @@ context-free generic responses.
    `mentor.ready`. This is a pure handshake — **do not** put a
    sessionId on it.
 2. The lab responds with `host.init`. Among other things, it MAY include:
-   - `labInstanceId` — a stable id for the student's current lab
+   - `labInstanceId` — a stable id for the learner's current lab
      attempt (see [Resume across reloads](#resume-across-reloads));
    - `sessionId` — a chat session id the host previously persisted
      (i.e., one your iframe announced on a prior `mentor.session.opened`).
@@ -510,7 +510,7 @@ right session is being handed to the right user. Record the identity
 context each session was created in (per [Section 3.2](#32-authentication)),
 and on mismatch, treat the resume as if no `sessionId` had been
 supplied — fall through to Mint. Without this check, a buggy host
-(or one whose origin validation has a bug) could hand one student's
+(or one whose origin validation has a bug) could hand one learner's
 conversation to another.
 
 ### Resume across reloads
@@ -642,12 +642,12 @@ Your iframe, after resolving the session:
 | `host.hint.request`                  | Optional  | Ask the mentor for a proactive hint. |
 | `host.theme.change`                  | Optional  | Theme switched at runtime. |
 | `host.locale.change`                 | Optional  | Locale switched at runtime. |
-| `host.send.message`                  | Optional  | Inject a user-authored message on the student's behalf. |
+| `host.send.message`                  | Optional  | Inject a user-authored message on the learner's behalf. |
 | `host.environmentTour.ended`         | Optional  | A tour the mentor showed over the console has ended: finished, closed, or replaced. |
-| `host.environmentTour.step`          | Optional  | A tour the mentor showed opened, or the student moved to another step. |
+| `host.environmentTour.step`          | Optional  | A tour the mentor showed opened, or the learner moved to another step. |
 | `host.environmentMark.ended`         | Optional  | A single mark the mentor showed over the console has ended, and how. |
-| `host.task.changed`                  | Optional  | The student ticked or unticked a task in the instructions. |
-| `host.activity.completed`            | Optional  | The student completed one of the lab's activities (answered a question, ran a check). |
+| `host.task.changed`                  | Optional  | The learner ticked or unticked a task in the instructions. |
+| `host.activity.completed`            | Optional  | The learner completed one of the lab's activities (answered a question, ran a check). |
 | `host.environmentScreenshot.response`| Optional  | Reply to `mentor.environmentScreenshot.request` with image data or a failure reason. |
 | `host.labClientScreenshot.response`  | Optional  | Reply to `mentor.labClientScreenshot.request` with image data or a failure reason. |
 | `host.environmentConnectionQuality.response` | Optional | Reply to `mentor.environmentConnectionQuality.request` with latency + quality category. |
@@ -676,12 +676,12 @@ host would have resumed.
 
 | Field            | Type                           | Notes |
 |------------------|--------------------------------|-------|
-| `labInstanceId`  | string?                        | Stable opaque id for the **student's current lab attempt**. Survives save/resume; not shared across users. Useful as a scope for the host's own session-id storage and for chat-side analytics. Treat as opaque (do not parse) and as a hint, not a credential. **No entropy guarantees** — Skillable's lab platform issues an incrementing 64-bit integer here, so do not use the value (or any derivation of it) as a sessionId. See [Resume across reloads](#resume-across-reloads). |
+| `labInstanceId`  | string?                        | Stable opaque id for the **learner's current lab attempt**. Survives save/resume; not shared across users. Useful as a scope for the host's own session-id storage and for chat-side analytics. Treat as opaque (do not parse) and as a hint, not a credential. **No entropy guarantees** — Skillable's lab platform issues an incrementing 64-bit integer here, so do not use the value (or any derivation of it) as a sessionId. See [Resume across reloads](#resume-across-reloads). |
 | `authToken`      | string?                        | RS256-signed JWT (a "launch token") authenticating this iframe load. The host always sends one; iframes that don't implement verification can ignore it. See [Section 3.2](#32-authentication) for the claim list, verification steps, and refresh model. |
 | `sessionId`      | string?                        | A chat session id the host previously persisted from a prior `mentor.session.opened`. The iframe SHOULD prefer this over any other resume channel. Omitted on first connection or if the host doesn't persist sessions. **Maximum 128 characters.** |
 | `userName`       | string?                        | Display-name hint. May be anonymized by the lab platform. |
 | `userId`         | string?                        | Opaque user id (identity hint, not a credential). When `authToken` is present, the JWT's `sub` claim is the authoritative form. |
-| `userRole`       | string?                        | The user's current view *in this lab session*, not the totality of their account permissions. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible — receivers MUST tolerate unknown values). A lab author taking the lab to verify it should show as `"student"` during that run; the same person editing it should show as `"labAuthor"`. The current view, not a credential: it may be lower than the JWT's `role` claim, never higher. See the `role` claim in [Section 3.2.2](#322-the-launch-token). |
+| `userRole`       | string?                        | The user's current view *in this lab session*, not the totality of their account permissions. One of `"student"`, `"instructor"`, `"labAuthor"` (extensible — receivers MUST tolerate unknown values); a learner is `"student"`. A lab author taking the lab to verify it should show as `"student"` during that run; the same person editing it should show as `"labAuthor"`. The current view, not a credential: it may be lower than the JWT's `role` claim, never higher. See the `role` claim in [Section 3.2.2](#322-the-launch-token). |
 | `userOrganizationId`   | string?                  | Opaque id for the user's organization. Identity hint, not a credential. When `authToken` is present, the JWT's `org_id` claim is the authoritative form. |
 | `userOrganizationName` | string?                  | Display name for the user's organization. Hosts MAY pass a friendly display name vs. the legal entity name (e.g., "Acme" rather than "Acme Holdings, Inc."), or omit this field entirely and pass only `userOrganizationId` for privacy-sensitive deployments. Iframes should be designed to work with id-only. |
 | `theme`          | `"light"` \| `"dark"` \| `"highcontrast"` | The lab's color mode. Apply immediately. Treat any other value as `"light"`. |
@@ -693,7 +693,7 @@ host would have resumed.
 
 ### `host.context.update`
 **Optional.** Push a new `LabContext` snapshot. The lab sends this
-whenever the student flips to a new instructions page, the environment
+whenever the learner flips to a new instructions page, the environment
 state changes materially, or the lab simply wants the mentor to
 re-ground.
 
@@ -709,7 +709,7 @@ does not change with it; see [Section 3.2.2](#322-the-launch-token).
 
 ### `host.hint.request`
 **Optional.** Ask the mentor to produce a proactive hint without the
-student having typed anything. Typical trigger: the student clicked an
+learner having typed anything. Typical trigger: the learner clicked an
 "I'm stuck" button in the host chrome.
 
 | Field     | Type     | Notes |
@@ -734,7 +734,7 @@ student having typed anything. Typical trigger: the student clicked an
 
 ### `host.send.message`
 **Optional.** Inject a user-authored message into the chat on the
-student's behalf. The lab uses this to support UX like "copy this
+learner's behalf. The lab uses this to support UX like "copy this
 question into the mentor".
 
 | Field      | Type     |
@@ -744,24 +744,24 @@ question into the mentor".
 ### `host.environmentTour.ended`
 **Optional.** Tells the mentor that a tour it showed with
 `mentor.showInEnvironment.request` and `steps` has ended, so it can
-pick up where the student left off. Sent once per tour, with no
+pick up where the learner left off. Sent once per tour, with no
 envelope `id` of its own. See [Tours](#tours).
 
 | Field       | Type     | Notes |
 |-------------|----------|-------|
 | `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that started the tour. `null` when the host doesn't have it. |
-| `completed` | boolean  | `true` only when the student pressed Done on the last step. |
+| `completed` | boolean  | `true` only when the learner pressed Done on the last step. |
 | `reason`    | string   | Why it ended: `"done"` (Done on the last step), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down). Receivers must tolerate unknown values. |
 | `step`      | integer  | The step on screen when it ended, from 1. |
 | `steps`     | integer  | How many steps the tour had. |
 
-A mentor might pick the conversation up when the student finishes
+A mentor might pick the conversation up when the learner finishes
 (`"done"`), offer to show the tour again after `"console_changed"`, once
 a new screenshot shows where things are now, say nothing for
 `"closed"`, and ignore `"replaced"`, which its own request caused.
 
 ### `host.environmentTour.step`
-**Optional.** Tells the mentor which step of its tour the student is
+**Optional.** Tells the mentor which step of its tour the learner is
 on: once when the tour opens, then each time they move with Next or
 Back. With no envelope `id` of its own. The first can arrive before the
 `host.showInEnvironment.response` that starts the tour. See
@@ -773,7 +773,7 @@ Back. With no envelope `id` of its own. The first can arrive before the
 | `step`      | integer  | The step now on screen, from 1. |
 | `steps`     | integer  | How many steps the tour has. |
 
-A mentor can follow the student through a tour with these, such as to
+A mentor can follow the learner through a tour with these, such as to
 watch the console for what each step asks of them.
 
 ### `host.environmentMark.ended`
@@ -784,15 +784,15 @@ once per mark, however it ends, with no envelope `id` of its own.
 | Field       | Type     | Notes |
 |-------------|----------|-------|
 | `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that showed the mark. `null` when the host doesn't have it. |
-| `reason`    | string   | Why it ended: `"done"` (the student clicked its Done button), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down), `"student_input"` (the student used the console, only for a mark without `done`). Receivers must tolerate unknown values. |
+| `reason`    | string   | Why it ended: `"done"` (the learner clicked its Done button), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down), `"student_input"` (the learner used the console, only for a mark without `done`). Receivers must tolerate unknown values. |
 
-For a mark with `done`, this is how the mentor hears that the student
+For a mark with `done`, this is how the mentor hears that the learner
 has done what it asked: `"done"` says they clicked Done, which a mentor
 should confirm by looking, or with a background command, before going
 on. Ignore `"replaced"`, which the mentor's own request caused.
 
 ### `host.task.changed`
-**Optional.** Tells the mentor that the student ticked or unticked a
+**Optional.** Tells the mentor that the learner ticked or unticked a
 task in the instructions, once the lab's task rules have settled it.
 Not sent for a task the mentor checked with
 `mentor.checkTask.request`, and only after `mentor.ready`. With no
@@ -804,7 +804,7 @@ envelope `id` of its own.
 | `checked` | boolean  | `true` when the task is now ticked. |
 | `page`    | integer  | **Zero-based** index of the page the task is on. |
 
-A mentor guiding the student through tasks they tick themselves can
+A mentor guiding the learner through tasks they tick themselves can
 take a tick as the cue to confirm that step and move on.
 
 **Secret hygiene.** Same caution that applies to
@@ -813,7 +813,7 @@ contain sample credentials. Redact obvious secrets before sending it
 to upstream LLMs or persistent storage.
 
 ### `host.activity.completed`
-**Optional.** Tells the mentor that the student completed one of the
+**Optional.** Tells the mentor that the learner completed one of the
 lab's activities, such as answering a question or running a check. Not
 sent for a check the mentor ran itself with
 `mentor.evaluateActivity.request`, which answers its request instead,
@@ -824,7 +824,7 @@ and only after `host.init`. With no envelope `id` of its own.
 | `alias`  | string?  | The activity's alias, as instructions reference it with `@lab.Activity(alias)`. `null` when the activity has none. |
 | `passed` | boolean? | `true` when the answer or check passed, `false` when it didn't. `null` for an activity with no right answer. |
 
-A mentor guiding the student can take a passed activity as the cue to
+A mentor guiding the learner can take a passed activity as the cue to
 confirm that step and move on, and a failed one as the cue to help.
 
 ### `host.environmentScreenshot.response`
@@ -886,7 +886,7 @@ difference is in *what* the host captures:
   framebuffer, remote-controller target, etc.).
 - `labClientScreenshot` → the full lab-client chrome (instructions
   pane, title bars, menus, navigation, environment area — whatever
-  the host considers "the entire lab UI as the student sees it").
+  the host considers "the entire lab UI as the learner sees it").
 
 Both can be advertised independently. A host may support one and not
 the other; the iframe gates the corresponding UI per capability.
@@ -907,7 +907,7 @@ lab-client screenshots).
 **Optional.** Reply to a prior `mentor.environmentConnectionQuality.request`.
 Conveys the current connection quality between the host and the lab
 environment (VM, remote controller, etc.) — useful for the mentor to
-help diagnose lag, freezes, and disconnect-class issues the student
+help diagnose lag, freezes, and disconnect-class issues the learner
 might be reporting.
 
 Payload fields are camelCase (the normal spec convention; the screenshot
@@ -941,7 +941,7 @@ fulfilled `id`.
 **Optional.** Reply to a prior `mentor.labInstructions.request`.
 Conveys the full set of instruction pages for the current lab — used by
 mentors that need to look ahead, look back, or reason over the lab as a
-whole rather than just the page the student is on right now. Companion
+whole rather than just the page the learner is on right now. Companion
 to `LabContext.pageInstructions`, which always reflects only the
 current page.
 
@@ -981,7 +981,7 @@ latest body. There is no explicit invalidate message in v1.
 
 **Teaching-style caveat (informational, not normative).** A mentor with
 full lab instructions has visibility into solutions and gating steps
-the student hasn't reached yet. Mentors that adopt a Socratic style
+the learner hasn't reached yet. Mentors that adopt a Socratic style
 should be deliberate about what they reveal in conversation; this is
 the iframe's responsibility, not the host's. Hosts can simply refuse to
 advertise the capability if they want to prevent look-ahead entirely.
@@ -1054,7 +1054,7 @@ has a console to press keys in.
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the host did the mouse action (or queued it behind text or earlier input still going out). It says nothing about what the action did; ask for `screenshot`, or take a screenshot, to see. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot, or a `waitUntil` region, is on a screenshot that no longer matches the console, see [Spots on a screenshot](#spots-on-a-screenshot), or, with `checkTarget`, the screen around the spot, or a drag's end, has changed since it; nothing is sent), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the student can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"stale"` (the spot, or a `waitUntil` region, is on a screenshot that no longer matches the console, see [Spots on a screenshot](#spots-on-a-screenshot), or, with `checkTarget`, the screen around the spot, or a drag's end, has changed since it; nothing is sent), `"not_available"` (nothing is selected to use the mouse in), `"not_supported"` (the selected console has no screen the mouse can reach, such as a terminal, or isn't connected, or the learner can only watch it right now), `"failed"` (anything else, including a bad `action`, a spot off the screenshot, or a screenshot size that can't be the screenshot's). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the action, as described under [Screenshot after an action](#screenshot-after-an-action). |
 | `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
@@ -1097,7 +1097,7 @@ hasn't gone out by then, the action still answers `ok: true`, and
 the message `"The input was dropped before it was sent."` or `"The input
 had not been sent after N seconds."`, where N is the seconds actually
 waited, without waiting or capturing. An action that hasn't gone out by
-then is not sent later. If the student switches to another
+then is not sent later. If the learner switches to another
 console before the wait or the screenshot is done, the action still
 answers `ok: true`, and `waited` and `screenshot` answer `ok: false` with
 reason `"not_available"` and the message `"The student switched consoles
@@ -1130,7 +1130,7 @@ failed action.
 | Field      | Type     | Notes |
 |------------|----------|-------|
 | `ok`       | boolean  | `true` when the screen did what was asked in time: changed, for `"changes"`, or stopped changing, for `"settles"`. |
-| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"stale"` (the `region` is on a screenshot that no longer matches the console; see **Regions** below), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the student switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't change, or didn't stop changing, within `timeoutSeconds`), `"stale"` (the `region` is on a screenshot that no longer matches the console; see **Regions** below), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the learner switched consoles), `"not_supported"` (the selected console has no screen to watch, such as a terminal), `"failed"` (anything else, including bad arguments). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
 | `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (a screenshot, as set out under `until` in [`mentor.environmentWait.request`](#mentorenvironmentwaitrequest)) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for `"settles"`. Receivers must tolerate unknown values. |
@@ -1172,7 +1172,7 @@ Says whether the lab is now showing the spot.
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the lab switched to the page, scrolled the spot into view and marked it. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page or target, or `occurrence` is past the last match), `"ambiguous"` (the target matches more than one place and no `occurrence` was given), `"not_visible"` (the target is in a part of the page the student hasn't opened, such as a collapsed hint), `"not_supported"` (the host can't point into its instructions), `"failed"` (anything else, including a malformed request). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page or target, or `occurrence` is past the last match), `"ambiguous"` (the target matches more than one place and no `occurrence` was given), `"not_visible"` (the target is in a part of the page the learner hasn't opened, such as a collapsed hint), `"not_supported"` (the host can't point into its instructions), `"failed"` (anything else, including a malformed request). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 
 Nothing changes on screen when `ok` is `false`. Hosts that can point
@@ -1185,7 +1185,7 @@ into their instructions advertise this response in
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `ok`      | boolean  | `true` when the task is now checked (or unchecked, as asked), including when it already was. |
-| `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page, or no task matches), `"ambiguous"` (the quote matches more than one task), `"not_visible"` (the task is in a part of the page the student hasn't opened), `"not_supported"` (the lab has no instructions), `"failed"` (anything else, including a lab that requires tasks in order refusing a task while earlier ones are unchecked). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `reason`  | string?  | Failure category when `ok` is `false`: `"not_found"` (no such page, or no task matches), `"ambiguous"` (the quote matches more than one task), `"not_visible"` (the task is in a part of the page the learner hasn't opened), `"not_supported"` (the lab has no instructions), `"failed"` (anything else, including a lab that requires tasks in order refusing a task while earlier ones are unchecked). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message` | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 
 Hosts that can check tasks advertise this response in
@@ -1277,21 +1277,21 @@ verification model.
 | `mentor.labClientScreenshot.request` | Optional | Ask the lab for a screenshot of the entire lab-client UI. Reply via `host.labClientScreenshot.response`. |
 | `mentor.environmentConnectionQuality.request` | Optional | Ask the lab for the environment connection quality. Reply via `host.environmentConnectionQuality.response`. |
 | `mentor.labInstructions.request` | Optional | Ask the lab for the full set of instruction pages. Reply via `host.labInstructions.response`. |
-| `mentor.environmentCommand.request` | Optional | Ask the lab to run a shell command in the lab environment, out of the student's view. Reply via `host.environmentCommand.response`. |
+| `mentor.environmentCommand.request` | Optional | Ask the lab to run a shell command in the lab environment, out of the learner's view. Reply via `host.environmentCommand.response`. |
 | `mentor.environmentCommand.cancel` | Optional | Ask the lab to abort a running `mentor.environmentCommand.request`. Fire-and-forget; the original request is answered with reason `"cancelled"`. |
-| `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the student has selected. Reply via `host.environmentTypeCredential.response`. |
+| `mentor.environmentTypeCredential.request` | Optional | Ask the lab to type a VM's or endpoint's user name or password into the console the learner has selected. Reply via `host.environmentTypeCredential.response`. |
 | `mentor.showInInstructions.request` | Optional | Ask the lab to scroll its instructions to a spot (a phrase, an image or an activity) and mark it. Reply via `host.showInInstructions.response`. |
 | `mentor.checkTask.request` | Optional | Ask the lab to check off (or uncheck) a task in its instructions. Reply via `host.checkTask.response`. |
-| `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a student, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
+| `mentor.viewAs.request` | Optional | Ask the lab to treat a lab author as a learner, so they can test the lab, or as the author again. Reply via `host.viewAs.response`. |
 | `mentor.labVariable.request` | Optional | Ask the lab for the value of one of its variables. Reply via `host.labVariable.response`. |
 | `mentor.setLabVariable.request` | Optional | Ask the lab to set one of its variables, for a lab author. Reply via `host.setLabVariable.response`. |
 | `mentor.evaluateActivity.request` | Optional | Ask the lab to evaluate an activity, for a lab author. Reply via `host.evaluateActivity.response`. |
 | `mentor.minutesRemaining.request` | Optional | Ask the lab how many minutes are left. Reply via `host.minutesRemaining.response`. |
-| `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the student has selected. Reply via `host.environmentKeys.response`. |
-| `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the student has selected. Reply via `host.environmentMouse.response`. |
-| `mentor.environmentWait.request` | Optional | Ask the lab to wait until the screen of the console the student has selected changes, or stops changing. Reply via `host.environmentWait.response`. |
-| `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the student has selected, show a tip over it, or walk the student through a tour of several. Reply via `host.showInEnvironment.response`. |
-| `mentor.message.sent`           | Optional  | Notification: student posted a message. |
+| `mentor.environmentKeys.request` | Optional | Ask the lab to press a key or key combination in the console the learner has selected. Reply via `host.environmentKeys.response`. |
+| `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the learner has selected. Reply via `host.environmentMouse.response`. |
+| `mentor.environmentWait.request` | Optional | Ask the lab to wait until the screen of the console the learner has selected changes, or stops changing. Reply via `host.environmentWait.response`. |
+| `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the learner has selected, show a tip over it, or walk the learner through a tour of several. Reply via `host.showInEnvironment.response`. |
+| `mentor.message.sent`           | Optional  | Notification: learner posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
 
@@ -1331,15 +1331,15 @@ Iframes that don't model sessions can omit this message entirely.
 least 128 bits of entropy (e.g. a UUIDv4 or a 32-character hex string
 from `crypto.getRandomValues`). Do not derive them from `userId`,
 timestamps, counters, or `labInstanceId`: hosts use sessionIds as
-bearer keys for resume, so predictable values would let one student
-request another student's conversation. `labInstanceId` in particular
+bearer keys for resume, so predictable values would let one learner
+request another learner's conversation. `labInstanceId` in particular
 is an opaque host-assigned identifier (the Skillable lab platform
 issues an incrementing 64-bit integer); treat it as a scope key for
 your own storage, never as a credential or as a sessionId.
 
 ### `mentor.gotoInstructionsPage`
 **Optional.** Ask the lab to navigate to a specific page of
-instructions. Equivalent to the student clicking Previous / Next enough
+instructions. Equivalent to the learner clicking Previous / Next enough
 times to land on that page. Your mentor does not need (and should not
 assume) any DOM selectors inside the instructions content.
 
@@ -1357,7 +1357,7 @@ select a target.
 On Spark consoles, the Skillable lab platform types text of up to 200
 characters as key presses, about ten a second. Longer text, which would
 take a long time to type, goes in as a clipboard paste, with its line
-breaks as CRLF, where the console shares the clipboard with the student,
+breaks as CRLF, where the console shares the clipboard with the learner,
 and as key presses where it doesn't. Either way it queues behind input sent before it, the input
 sent after it waits for it, and it never replaces, and is never
 replaced by, other input. Other consoles take it the way they take
@@ -1369,7 +1369,7 @@ typed text today.
 
 **Security note.** Skillable is ultimately responsible for what reaches
 the environment. Assume the lab will not auto-execute your text but
-will type it for the student to review. Do not use this channel to
+will type it for the learner to review. Do not use this channel to
 attempt to escape the lab.
 
 Iframes SHOULD require explicit user action before posting
@@ -1378,12 +1378,12 @@ or preview-and-confirm step rather than typing straight from an LLM
 response. Hostile lab content (see
 [Section 3.7](#37-host-content-is-untrusted-input)) that successfully
 prompt-injects your model can otherwise turn this channel into
-auto-typed input on the student's behalf.
+auto-typed input on the learner's behalf.
 
 ### `mentor.environmentScreenshot.request`
 **Optional.** Ask the lab to capture and return an image of the current
 lab environment (a VM screen, a remote-controller framebuffer, etc.).
-Typical trigger: the student clicks a "share screenshot" affordance in
+Typical trigger: the learner clicks a "share screenshot" affordance in
 the chat composer so the mentor can reason over the visual state.
 
 The host correlates the response by echoing the envelope `id` of this
@@ -1402,7 +1402,7 @@ response arrives.
 ### `mentor.labClientScreenshot.request`
 **Optional.** Ask the lab to capture and return an image of the entire
 lab-client UI — instructions pane, title bars, menus, environment
-area, the whole frame the student sees. Companion to
+area, the whole frame the learner sees. Companion to
 `mentor.environmentScreenshot.request`, which captures only the
 environment surface. Two distinct messages because each has a separate
 host implementation and may be independently supported.
@@ -1420,7 +1420,7 @@ recommendation applies.
 **Optional.** Ask the lab for the current connection quality between
 the host and the lab environment (VM, remote controller, etc.).
 Mentors use this to help diagnose lag, freeze, and disconnect-class
-issues the student is reporting.
+issues the learner is reporting.
 
 No payload fields beyond the envelope; assign an `id` and expect the
 host to echo it on its `host.environmentConnectionQuality.response`.
@@ -1428,7 +1428,7 @@ host to echo it on its `host.environmentConnectionQuality.response`.
 Typical triggers on the iframe side: a tool the mentor's model calls
 when it judges the connection worth measuring, a `/connection` slash
 command for manual checks, or, for a mentor without a model, an
-automatic check when the student's message mentions connection-quality
+automatic check when the learner's message mentions connection-quality
 keywords ("slow," "lag," "frozen," etc.). These are sample-agent UX
 choices, not spec requirements: the protocol just defines the
 request/response.
@@ -1463,23 +1463,23 @@ for full caching guidance.
 
 ### `mentor.environmentCommand.request`
 **Optional.** Ask the lab to run a shell command in the active lab
-environment, in a background session the student does not see. This is
+environment, in a background session the learner does not see. This is
 the counterpart to `mentor.sendTextToEnvironment`: that one types into
-the console the student is watching and returns nothing; this one runs
+the console the learner is watching and returns nothing; this one runs
 out of band and returns the output. Mentors use it to inspect the
-environment, check the student's work, and install or configure
-software on the student's behalf.
+environment, check the learner's work, and install or configure
+software on the learner's behalf.
 
 | Field                | Type     | Notes |
 |----------------------|----------|-------|
 | `command`            | string   | Shell command. On an `ssh` endpoint the host runs it with bash; on a `powershell` endpoint, with Windows PowerShell. It runs as the endpoint's user. |
-| `machine`            | string?  | Alias of the VM to run on (`LabContext.machines[].alias`). Defaults to the VM the student has selected. |
+| `machine`            | string?  | Alias of the VM to run on (`LabContext.machines[].alias`). Defaults to the VM the learner has selected. |
 | `endpoint`           | string?  | Alias of the endpoint to run through, on that VM. It must be `mentorAccessible`. When omitted, the host uses the selected endpoint if the mentor can use it, otherwise the VM's one mentor-accessible endpoint. |
 | `runAsAdministrator` | boolean? | Run with elevated privileges (sudo on Linux). The host supplies any credentials elevation needs; the iframe never handles them. A host that can't elevate on an endpoint replies `ok: false` with reason `"not_supported"`. Defaults to `false`. |
 | `timeoutSeconds`     | integer? | How long the command may run before the host ends it and replies `"timeout"`. Defaults to 60. Hosts may enforce a minimum and may cap it; the iframe owns choosing a sensible value (see below). |
 
 The mentor may target any VM in `LabContext.machines`, not just the
-selected one; the selection is context for what the student is
+selected one; the selection is context for what the learner is
 probably talking about. The host decides how it reaches the endpoint,
 and the iframe never supplies addresses or credentials. When the target
 can't be resolved (unknown alias, an endpoint without mentor access, or
@@ -1499,7 +1499,7 @@ than the work warrants:
 - For work that may run for a long time, such as large installs, updates
   or builds, start it in the background on the VM and check on it with
   short commands, rather than holding one long-running command open.
-- When a result is no longer needed, for example because the student
+- When a result is no longer needed, for example because the learner
   stopped the mentor or changed course, cancel it with
   `mentor.environmentCommand.cancel` instead of letting it run out.
 
@@ -1511,14 +1511,14 @@ command is typed, after opening a session to the endpoint, so allow at
 least 30 seconds beyond `timeoutSeconds`.
 
 **Trust.** A command runs with the lab user's rights (or the
-administrator's, when requested) inside the student's lab environment.
+administrator's, when requested) inside the learner's lab environment.
 Hosts SHOULD log every command with the lab instance it ran against.
-Mentors SHOULD tell the student what they are about to change before
+Mentors SHOULD tell the learner what they are about to change before
 changing it.
 
 ### `mentor.environmentCommand.cancel`
 **Optional.** Ask the lab to abort a command started by an earlier
-`mentor.environmentCommand.request`, typically because the student
+`mentor.environmentCommand.request`, typically because the learner
 stopped the mentor. Fire-and-forget: the host sends no reply to this
 message itself.
 
@@ -1542,7 +1542,7 @@ send it when `host.environmentCommand.response` is present in
 
 ### `mentor.environmentTypeCredential.request`
 **Optional.** Ask the lab to type one of the lab's credentials, a user
-name or a password, into the console the student currently has
+name or a password, into the console the learner currently has
 selected. The host types it the way it types
 `mentor.sendTextToEnvironment` text, except that a credential always
 goes as key presses, never through the clipboard, whatever its length,
@@ -1554,12 +1554,12 @@ or its model.
 | Field        | Type                         | Notes |
 |--------------|------------------------------|-------|
 | `credential` | `"username"` \| `"password"` | Which credential to type. |
-| `machine`    | string?                      | Alias of the VM whose credentials to type (`LabContext.machines[].alias`). When only `endpoint` is named, defaults to the VM the student has selected (the selected endpoint's VM when an endpoint is selected). See below for when neither is named. |
+| `machine`    | string?                      | Alias of the VM whose credentials to type (`LabContext.machines[].alias`). When only `endpoint` is named, defaults to the VM the learner has selected (the selected endpoint's VM when an endpoint is selected). See below for when neither is named. |
 | `endpoint`   | string?                      | Alias of an endpoint on that VM, to type that endpoint's credentials. When `machine` is named and `endpoint` is not, the host types the VM's own credentials. See below for when neither is named. |
 | `pressEnter` | boolean?                     | Press the console's own Enter key after typing. Defaults to `false`. Some consoles end every typed line with Enter anyway (for example a Telnet console), and hosts don't add a second one there. |
 
 **Whose credential.** With neither `machine` nor `endpoint` named, the
-host types the credentials of what the student has selected: the
+host types the credentials of what the learner has selected: the
 selected endpoint's if an endpoint is selected, otherwise the selected
 VM's. Naming either one switches to explicit targeting: `machine`
 defaults to the selected VM (the selected endpoint's VM when an
@@ -1567,7 +1567,7 @@ endpoint is selected), and the host types an endpoint's credentials
 only when `endpoint` is named, otherwise the VM's own.
 
 `machine` and `endpoint` choose *whose* credential is typed, not where
-it goes: the host always types into the console the student has
+it goes: the host always types into the console the learner has
 selected, like `mentor.sendTextToEnvironment`. Typing another VM's
 password into the selected console is legitimate, for example to answer
 an `ssh` prompt for that VM. When the selected target can't be typed
@@ -1576,11 +1576,11 @@ reason `"not_available"`.
 
 The host decides which credentials it is willing to type and replies
 `ok: false` with reason `"failed"` for any it won't. A host may refuse
-the credentials of VMs or endpoints hidden from the student. The
+the credentials of VMs or endpoints hidden from the learner. The
 Skillable lab platform types a VM's credentials only when the VM is
-visible to the student, an endpoint's credentials only when the endpoint
-is visible to the student or `mentorAccessible`, and never anything
-belonging to a VM that is completely hidden from the student. For a
+visible to the learner, an endpoint's credentials only when the endpoint
+is visible to the learner or `mentorAccessible`, and never anything
+belonging to a VM that is completely hidden from the learner. For a
 user who can edit the lab, such as an author building it, it types
 what that user's console shows: every VM's credentials, and those of
 endpoints visible to admins.
@@ -1592,26 +1592,26 @@ the credential worked looks at the result (a screenshot, or a command
 that checks), not at the value.
 
 **Type a password only at a prompt that hides it.** The host types the
-value as if the student had, so whatever the console echoes stays on
+value as if the learner had, so whatever the console echoes stays on
 screen and shows in any later screenshot. Typed at a password prompt
 (`sudo`, `ssh`, a sign-in screen), nothing is echoed; typed into a
 shell, an editor or a visible text field, the password is shown to the
-student and to any screenshot the mentor takes. Wait for the prompt
+learner and to any screenshot the mentor takes. Wait for the prompt
 before asking for the password.
 
 **Using it.**
 
 - Use it to answer a `sudo` password prompt or a login prompt in the
-  student's console, or to sign in on the student's behalf.
+  learner's console, or to sign in on the learner's behalf.
 - Type the command that prompts first (with
   `mentor.sendTextToEnvironment`), wait for the prompt to appear, then
   send this request, usually with `pressEnter: true`. Text typed before
   the prompt is ready can be swallowed or echoed to the screen.
-- Never ask the student for a credential the mentor can type this way.
+- Never ask the learner for a credential the mentor can type this way.
   Asking puts a secret into the chat transcript, which this message
   exists to avoid.
 
-For work that doesn't need the student to watch,
+For work that doesn't need the learner to watch,
 `mentor.environmentCommand.request` with `runAsAdministrator` is
 usually simpler: the host supplies elevation credentials itself.
 
@@ -1622,7 +1622,7 @@ recommendation applies.
 
 ### `mentor.environmentKeys.request`
 **Optional.** Ask the lab to press a key or key combination in the
-console the student has selected: shortcuts such as Win+R, Ctrl+S or
+console the learner has selected: shortcuts such as Win+R, Ctrl+S or
 Alt+Tab, and keys such as Tab, Esc, the arrows or the function keys,
 which `mentor.sendTextToEnvironment` can't express. The keys go to the
 same console text goes to, wherever its focus is.
@@ -1648,7 +1648,7 @@ while it is still waiting behind earlier text; ask for `screenshot` or
 `waitUntil` to learn whether it went out. A console takes only so much
 waiting input at once: past that, a request answers `"not_supported"`
 until it catches up, and presses none of its keys, so it can be sent
-again. Where the input waits behind text the host types for the student,
+again. Where the input waits behind text the host types for the learner,
 a request that doesn't fit answers `ok: true` and is reported dropped
 instead.
 
@@ -1678,14 +1678,14 @@ name places on the console by where they are on a screenshot from
   for `mentor.environmentScreenshot.request` records which console it
   came from and that console's resolution. A spot is read against that
   record, so it answers `"stale"` when there's been no screenshot of the
-  selected console since the page loaded, when the student has switched
+  selected console since the page loaded, when the learner has switched
   to another console, or when the console's resolution has changed
   since. Take a new screenshot, find the spot on it again, and retry.
-- **Before the student's input.** A spot to click or mark, in
+- **Before the learner's input.** A spot to click or mark, in
   `mentor.environmentMouse.request` or `mentor.showInEnvironment.request`,
-  also answers `"stale"` once the student has used the console (mouse,
+  also answers `"stale"` once the learner has used the console (mouse,
   keyboard or touch) since the screenshot, since what they did may have moved what the spot
-  pointed at. The `message` is "The student has used the console since
+  pointed at. The `message` is "The learner has used the console since
   your screenshot. Take a new one and find the spot on it."
 - **Screenshots returned with an action count.** A `screenshot` returned
   with `host.environmentKeys.response` or `host.environmentMouse.response`
@@ -1701,7 +1701,7 @@ name places on the console by where they are on a screenshot from
   size it's shown at on the page.
 
 ### `mentor.environmentMouse.request`
-**Optional.** Ask the lab to use the mouse in the console the student
+**Optional.** Ask the lab to use the mouse in the console the learner
 has selected, at a spot on a screenshot of it: to click what keys can't
 reach, such as a button with no shortcut, a tray icon or an item in a
 web page.
@@ -1741,24 +1741,24 @@ actions sent one at a time, each after the previous one's answer. Where the host
 screen to compare with, the action goes as it would without
 `checkTarget`.
 
-**The student sees it.** The Skillable lab platform shows a ripple on
+**The learner sees it.** The Skillable lab platform shows a ripple on
 the console where the mentor clicks: two for a double-click, three for
 a triple-click, and one at each end of a drag.
 
 **Keys first.** Where a key or shortcut does the job, prefer
 `mentor.environmentKeys.request`: it doesn't depend on where things are
-on the screen. And where the point is for the student to learn where
+on the screen. And where the point is for the learner to learn where
 something is, show them with `mentor.showInEnvironment.request` rather
 than clicking it for them.
 
 Consoles with no screen the mouse can reach answer `"not_supported"`:
 terminals (SSH and PowerShell), consoles that aren't connected, and
-consoles the student can only watch at the moment, such as while an
+consoles the learner can only watch at the moment, such as while an
 instructor is monitoring the lab or a dialog covers the console.
 
 ### `mentor.environmentWait.request`
 **Optional.** Ask the lab to wait until the screen of the console the
-student has selected changes, or stops changing: for a dialog to open, a
+learner has selected changes, or stops changing: for a dialog to open, a
 page to load or an install to finish, rather than pausing for a fixed
 time and looking. The host answers with `host.environmentWait.response`
 as soon as the screen does what was asked, or when time runs out.
@@ -1784,7 +1784,7 @@ checked and scaled like a region `mentor.showInEnvironment.request`
 outlines: one off the screenshot answers `"failed"`, and one on a
 screenshot that no longer matches the console answers `"stale"` (see
 [Spots on a screenshot](#spots-on-a-screenshot)), except that the
-student using the console doesn't make it stale, since that is often
+learner using the console doesn't make it stale, since that is often
 what the wait is for. It is compared in more detail than the whole
 screen, and counts as changed once a small patch of it does, however
 large the region: a word typed counts. A region too small for that,
@@ -1799,9 +1799,9 @@ Consoles with no screen to watch, such as terminals, answer
 `"not_supported"`.
 
 ### `mentor.showInEnvironment.request`
-**Optional.** Ask the lab to bring the student's attention to a spot or
-region on the console the student has selected, or to show a tip over
-the console as a whole, or to walk the student through several of
+**Optional.** Ask the lab to bring the learner's attention to a spot or
+region on the console the learner has selected, or to show a tip over
+the console as a whole, or to walk the learner through several of
 these in turn as a tour. It's the console's counterpart to
 `mentor.showInInstructions.request`: the lab shows the same kind of
 caption, with a way back to the mentor.
@@ -1813,17 +1813,17 @@ caption, with a way back to the mentor.
 | `screenshotWidth`, `screenshotHeight` | integer? | Required with `x` and `y`, or when any step has a spot: the size in pixels of the screenshot they're on. |
 | `width`, `height`  | number?  | The size of a region to outline, on the same screenshot. Both or neither, and only with `x` and `y`. |
 | `steps`            | object[]? | A tour: 1 to 10 marks, each `{ note?, x?, y?, width?, height? }` with the same rules as a single mark, all on the same screenshot. With `steps`, leave out the top-level `note`, `x`, `y`, `width` and `height`. See [Tours](#tours). |
-| `done`             | boolean? | A single mark only: `true` gives the caption a Done button and keeps the mark up while the student uses the console. See [Marks with Done](#marks-with-done). Ignored with `steps`, since a tour has its own. Defaults to `false`. |
+| `done`             | boolean? | A single mark only: `true` gives the caption a Done button and keeps the mark up while the learner uses the console. See [Marks with Done](#marks-with-done). Ignored with `steps`, since a tour has its own. Defaults to `false`. |
 
 **Three shapes.** With `x` and `y`, the lab marks the spot and hangs the
 caption from it. With `width` and `height` as well, it outlines the
 region instead. With no spot, the caption is a tip about the screen as
 a whole; a tip never answers `"stale"`.
 
-**The student stays in control.** The mark never blocks the console:
+**The learner stays in control.** The mark never blocks the console:
 clicks and keys go through it to the VM, except on the caption itself,
 which takes the clicks that land on it rather than passing them to
-whatever it covers. It goes when the student uses
+whatever it covers. It goes when the learner uses
 the mouse, keyboard or touch in the console or closes the caption, and
 when the console changes: another console is selected, it disconnects,
 or its resolution changes. Following the caption's link back to the
@@ -1834,25 +1834,25 @@ While the spot is scrolled out of view, the mark hides. The host sends
 mark ends, however it ends.
 
 #### Marks with Done
-With `done`, a single mark asks the student to do something and say
+With `done`, a single mark asks the learner to do something and say
 when they have, without a round trip through the chat:
 
-- **It stays while the student works.** Like a tour, it doesn't go
-  when the student uses the console. It ends when they click Done or
+- **It stays while the learner works.** Like a tour, it doesn't go
+  when the learner uses the console. It ends when they click Done or
   close the caption, when the mentor shows another mark or tour, when
   the console changes, and when the lab takes it down.
 - **The mentor hears how it ended.** `host.environmentMark.ended`
-  carries `"done"` when the student clicked Done. Confirm the step
-  before going on: Done says the student thinks they're finished, not
+  carries `"done"` when the learner clicked Done. Confirm the step
+  before going on: Done says the learner thinks they're finished, not
   that they are.
-- **Look again before the next mark.** The student's clicks make the
+- **Look again before the next mark.** The learner's clicks make the
   screenshot stale (see [Spots on a screenshot](#spots-on-a-screenshot)),
   so take a new one before marking the next spot.
 
 #### Tours
 With `steps`, the lab shows a tour: one step at a time in the same
 caption, with a count ("2 of 4"), a Back button from the second step,
-and Next, or Done on the last step. The student moves through it at
+and Next, or Done on the last step. The learner moves through it at
 their own pace, with no round trip to the mentor. Each step is a spot,
 a region or a tip, as for a single mark, and every step's spot is on
 the one screenshot whose size is the top-level `screenshotWidth` and
@@ -1864,8 +1864,8 @@ the one screenshot whose size is the top-level `screenshotWidth` and
   `width` or `height` ("Give steps or a single mark, not both."). The
   `"stale"` checks apply when the tour is shown, as for a single mark.
   The response says `ok` once the first step is showing.
-- **It stays while the student works.** Unlike a single mark, a tour
-  doesn't go when the student uses the console, since its steps often
+- **It stays while the learner works.** Unlike a single mark, a tour
+  doesn't go when the learner uses the console, since its steps often
   ask them to click something, nor when they follow its link back to
   the mentor to ask about a step. It ends when they press Done or close
   the caption, when the mentor shows another mark or tour, and when the
@@ -1873,20 +1873,20 @@ the one screenshot whose size is the top-level `screenshotWidth` and
 - **The mentor hears how it ended.** The host sends
   [`host.environmentTour.ended`](#hostenvironmenttourended) when a tour
   ends, however it ends.
-- **And which step the student is on.** The host sends
+- **And which step the learner is on.** The host sends
   [`host.environmentTour.step`](#hostenvironmenttourstep) as the tour
-  opens and each time the student moves with Next or Back.
+  opens and each time the learner moves with Next or Back.
 
 **One mark at a time.** A new request replaces the mark or tour on
 screen at once, so a mark replaced right after it appears is barely
 seen. A mentor has three ways to show more than one thing:
 
 - **One mark** for one thing: a spot, a region or a tip.
-- **A tour** to walk the student through several things on the same
+- **A tour** to walk the learner through several things on the same
   screen, in order. They step through it with Next at their own pace.
 - **Separate marks one after another** when the next step depends on
-  what the student does first, such as a dialog that only opens after
-  a click: show one, with `done` to hear when the student has acted on
+  what the learner does first, such as a dialog that only opens after
+  a click: show one, with `done` to hear when the learner has acted on
   it, take a new screenshot, then show the next. Don't send a run of
   single marks back to back.
 
@@ -1894,9 +1894,9 @@ Hosts label the caption (the Skillable lab platform as a pointer or a
 tip from the mentor), so the note needn't start with "Tip:".
 
 ### `mentor.viewAs.request`
-**Optional.** Ask the lab to treat a lab author as a student for
+**Optional.** Ask the lab to treat a lab author as a learner for
 everything the mentor can see and do, so they can test the lab the way
-a student will meet it, or to treat them as the author again. Offer it
+a learner will meet it, or to treat them as the author again. Offer it
 when `host.viewAs.response` is in `host.init.capabilities`, for example
 as a toggle in the chat, and when the author asks for it in the
 conversation.
@@ -1905,36 +1905,36 @@ conversation.
 |--------|-------------------------------|-------|
 | `role` | `"student"` \| `"labAuthor"` | The view to switch to. |
 
-**The host enforces the view.** In student view the host gives the mentor
-exactly a student's reach: the student's machine catalog, and the
-student's rules for commands and credentials, even though the user could
+**The host enforces the view.** In learner view the host gives the mentor
+exactly a learner's reach: the learner's machine catalog, and the
+learner's rules for commands and credentials, even though the user could
 see more. It's not a role the mentor plays. After the switch the host
 sends `host.context.update` with the new `userRole` and machines. The
 signed `role` claim stays `"labAuthor"` (see
 [Section 3.2.2](#322-the-launch-token)). The
 mentor's own conversation still holds what it saw before, so a mentor
 should work only from the new context and not reveal anything the
-student view doesn't show.
+learner view doesn't show.
 
 **It lasts.** The Skillable lab platform keeps the view for the lab
 instance across page reloads, until the author switches back.
 
 ### `mentor.showInInstructions.request`
-**Optional.** Ask the lab to bring the student's attention to a spot in
+**Optional.** Ask the lab to bring the learner's attention to a spot in
 the instructions. The host switches to the Instructions view and the
 page, scrolls the spot into view, marks it, and puts a caption beside it
 with a way back to the mentor. Use it to show where something is,
 especially below the visible part of a long page. Like
 `mentor.gotoInstructionsPage`, it relies on no DOM selectors: name the
-spot the way the student sees it.
+spot the way the learner sees it.
 
 | Field        | Type     | Notes |
 |--------------|----------|-------|
-| `text`       | string?  | A short phrase copied from the page as the student reads it, about 3 to 15 words. Hosts match it ignoring case, whitespace, and the difference between straight and curly quotes or hyphens and dashes, so it may run across bold text, links and inline code. Leave out markdown syntax. |
+| `text`       | string?  | A short phrase copied from the page as the learner reads it, about 3 to 15 words. Hosts match it ignoring case, whitespace, and the difference between straight and curly quotes or hyphens and dashes, so it may run across bold text, links and inline code. Leave out markdown syntax. |
 | `image`      | string?  | An image on the page, by its alt text or its file name. |
 | `activity`   | string?  | An activity (a question or task) on the page, by its alias. |
-| `page`       | integer? | **Zero-based** page index (same frame of reference as `LabContext.currentPageIndex`). Defaults to the page the student is on. |
-| `occurrence` | integer? | Which match to show, from 1, when the target appears more than once. Counts only the matches the student can see. |
+| `page`       | integer? | **Zero-based** page index (same frame of reference as `LabContext.currentPageIndex`). Defaults to the page the learner is on. |
+| `occurrence` | integer? | Which match to show, from 1, when the target appears more than once. Counts only the matches the learner can see. |
 | `note`       | string?  | A short caption shown beside the spot, such as why it matters. Plain text: hosts show it as text, never as markup, and may cut it short (the Skillable lab platform keeps 200 characters). |
 
 Name exactly one of `text`, `image` or `activity`.
@@ -1943,32 +1943,32 @@ Name exactly one of `text`, `image` or `activity`.
 than one place and `occurrence` is absent, the host changes nothing and
 replies `"ambiguous"`. Quote more of the text, or pass `occurrence`.
 
-**The student stays in control.** The mark stays until the student
+**The learner stays in control.** The mark stays until the learner
 clicks in the instructions, changes page, follows the caption's link
 back to the mentor, or closes the caption. A new request replaces the
-previous mark. Hosts honor the student's reduced-motion preference.
+previous mark. Hosts honor the learner's reduced-motion preference.
 
 **The instructions may take the mentor's place.** Where the mentor and
 the instructions share one tab strip, as on the Skillable lab platform,
 the mentor is out of sight while the instructions show. Keep the reply
 that goes with the pointer short and put the essential words in `note`;
-the caption's link brings the student back.
+the caption's link brings the learner back.
 
 ### `mentor.checkTask.request`
 **Optional.** Ask the lab to check off a task in its instructions, or
-uncheck it, the same as the student ticking its box. On the Skillable
-lab platform this records the student's progress, and the lab's task
+uncheck it, the same as the learner ticking its box. On the Skillable
+lab platform this records the learner's progress, and the lab's task
 rules apply, such as tasks having to be completed in order.
 
 | Field     | Type     | Notes |
 |-----------|----------|-------|
 | `task`    | string   | A phrase copied from the task's text, matched the way `mentor.showInInstructions.request` matches `text`. Quote enough to tell the task from the others on the page. |
-| `page`    | integer? | **Zero-based** page index. Defaults to the page the student is on. |
+| `page`    | integer? | **Zero-based** page index. Defaults to the page the learner is on. |
 | `checked` | boolean? | `false` to uncheck the task. Defaults to `true`. |
 
 Check a task only once you have confirmed it is done, for example from a
 screenshot or a background command, whoever did the work. A task the
-mentor checks this way sends no `host.task.changed`; one the student
+mentor checks this way sends no `host.task.changed`; one the learner
 ticks does. Hosts refuse
 rather than guess: a quote matching several tasks is `"ambiguous"`, and
 in a lab that requires tasks in order, a task with unchecked ones before
@@ -1997,7 +1997,7 @@ send it when `host.setLabVariable.response` is in
 
 ### `mentor.evaluateActivity.request`
 **Optional.** Ask the lab to evaluate an activity (run its check, or
-submit a question's chosen answer), the way the student's button for it
+submit a question's chosen answer), the way the learner's button for it
 does, and answer with its result. Only for a lab
 author in author view; send it when `host.evaluateActivity.response` is
 in `host.init.capabilities`.
@@ -2006,7 +2006,7 @@ in `host.init.capabilities`.
 |---------|--------|-------|
 | `alias` | string | The activity's alias, as in `@lab.Activity(alias)`. |
 
-The result is recorded as the student's, as if they had pressed the
+The result is recorded as the learner's, as if they had pressed the
 button, and sends no `host.activity.completed`. An evaluation can take a
 while: the host waits up to 5 minutes for a result, then answers
 `"timeout"`, so allow at least that long before giving up on the
@@ -2021,7 +2021,7 @@ No payload fields beyond the envelope; assign an `id` and expect the
 host to echo it on its `host.minutesRemaining.response`.
 
 ### `mentor.message.sent`
-**Optional.** Notification that the student posted a message. Useful
+**Optional.** Notification that the learner posted a message. Useful
 for host-side unread-badge UX, analytics, or transcript capture. Safe
 to ignore.
 
@@ -2056,7 +2056,7 @@ the first page"), the recommended pattern is:
 
 1. Render the message plus one or more buttons for the suggested
    actions.
-2. If the student clicks a button, your iframe posts the corresponding
+2. If the learner clicks a button, your iframe posts the corresponding
    outbound message — `mentor.sendTextToEnvironment`,
    `mentor.gotoInstructionsPage`, etc.
 3. The lab decides whether and how to honor it.
@@ -2085,13 +2085,13 @@ within a page are a lab-authoring concept and are not modeled here.
 |--------------------|------------------------------|-------|
 | `labId`            | string?                      | Stable id of the lab. |
 | `labTitle`         | string?                      | Human-readable title. |
-| `currentPageIndex` | integer?                     | **Zero-based** index of the page the student is on. |
+| `currentPageIndex` | integer?                     | **Zero-based** index of the page the learner is on. |
 | `totalPages`       | integer?                     | Total number of pages. |
 | `pageTitle`        | string?                      | The page's heading text, if it starts with one. When absent, display as `Page {currentPageIndex + 1}`. |
 | `pageInstructions` | string?                      | The current page's **markdown source** as the author wrote it, tokens unresolved (such as `@lab.VirtualMachine(Win11).Username`), with `@lab.Variable(name)` and `@lab.Activity(alias)` references left as written. When the host can't split the source into the pages it shows (for example a replacement adds a page break), or for a page the source doesn't give (such as an external manual page), it sends the text the page shows instead. Use this to ground mentor responses. See **Instructions markdown** below. |
-| `tokens`           | `{ [token: string]: string }`? | The lab's replacement tokens and their values, keyed by the token as instructions write it, such as `{ "@lab.VirtualMachine(Win11).Username": "student1" }`. Includes the VM, endpoint, cloud credential and cloud portal user names and passwords the student is given, the student's name (but not their email or external id), and tokens for every VM, including ones hidden from students (unlike `machines`). Subscription automation secrets (app secrets, access keys) are never in it. A token the Lab Client shows as a link (such as a VM's select link) is left out, since it only repeats a name; a token shown as HTML (such as `@lab.Title`) gives its text, and a token with no text, such as a VM console placement, is left out. Sent in `host.init`, and again with the machines in the `host.context.update` that follows a view switch; any other `host.context.update` leaves it out, which means unchanged. Carry the last value forward, as for `machines`. |
-| `environment`      | `{ [key: string]: string }`? | Facts about the environment the student has selected. Well-known keys: `name` (display name), `os`, and for virtual machine labs `machine` (the selected VM's alias) and `endpoint` (the selected endpoint's alias, when the student is on an endpoint rather than the VM's own console). Hosts may add free-form keys (shell, cwd, last command, etc.). |
-| `machines`         | LabMachine[]?                | The lab's virtual machines the user can see, and each one's endpoints. For a student, a VM is listed when it or one of its endpoints is visible to them; a VM completely hidden from students is left out, so the mentor can't reveal it. For a user who can edit the lab, every VM is listed, as their console shows them. Sent in `host.init`, and again in the `host.context.update` that follows a view switch, since the view decides which VMs show; any other `host.context.update` leaves it out, which means unchanged. Absent outside virtual machine labs. See below. |
+| `tokens`           | `{ [token: string]: string }`? | The lab's replacement tokens and their values, keyed by the token as instructions write it, such as `{ "@lab.VirtualMachine(Win11).Username": "student1" }`. Includes the VM, endpoint, cloud credential and cloud portal user names and passwords the learner is given, the learner's name (but not their email or external id), and tokens for every VM, including ones hidden from learners (unlike `machines`). Subscription automation secrets (app secrets, access keys) are never in it. A token the Lab Client shows as a link (such as a VM's select link) is left out, since it only repeats a name; a token shown as HTML (such as `@lab.Title`) gives its text, and a token with no text, such as a VM console placement, is left out. Sent in `host.init`, and again with the machines in the `host.context.update` that follows a view switch; any other `host.context.update` leaves it out, which means unchanged. Carry the last value forward, as for `machines`. |
+| `environment`      | `{ [key: string]: string }`? | Facts about the environment the learner has selected. Well-known keys: `name` (display name), `os`, and for virtual machine labs `machine` (the selected VM's alias) and `endpoint` (the selected endpoint's alias, when the learner is on an endpoint rather than the VM's own console). Hosts may add free-form keys (shell, cwd, last command, etc.). |
+| `machines`         | LabMachine[]?                | The lab's virtual machines the user can see, and each one's endpoints. For a learner, a VM is listed when it or one of its endpoints is visible to them; a VM completely hidden from learners is left out, so the mentor can't reveal it. For a user who can edit the lab, every VM is listed, as their console shows them. Sent in `host.init`, and again in the `host.context.update` that follows a view switch, since the view decides which VMs show; any other `host.context.update` leaves it out, which means unchanged. Absent outside virtual machine labs. See below. |
 
 All fields are optional. Build your mentor to degrade gracefully when
 any one is missing, and to re-ground on every update.
@@ -2105,10 +2105,10 @@ and `host.labInstructions.response.source` use these conventions:
   `mentor.labVariable.request`.
 - `@lab.Activity(alias)`: an activity (a question or a check), evaluated with
   `mentor.evaluateActivity.request`.
-- `+++text+++`: text the student can click to type into the console.
-- `++text++`: text the student can copy.
-- `++++text++++`: text the student can both copy and click to type.
-- `- []` at the start of a line: a task the student ticks.
+- `+++text+++`: text the learner can click to type into the console.
+- `++text++`: text the learner can copy.
+- `++++text++++`: text the learner can both copy and click to type.
+- `- []` at the start of a line: a task the learner ticks.
 - A line of three or more `=`, optionally space-separated (such as
   `===`, `====` or `= = =`), with up to three leading spaces: a break
   between pages.
@@ -2123,10 +2123,10 @@ Each `LabMachine`:
 | Field            | Type             | Notes |
 |------------------|------------------|-------|
 | `alias`          | string?          | Stable name for the VM within the lab. The name `mentor.environmentCommand.request` targets it by. |
-| `name`           | string?          | Display name, as the student sees it. |
+| `name`           | string?          | Display name, as the learner sees it. |
 | `os`             | string?          | Operating system, as the author described it. |
-| `studentVisible` | boolean          | Whether the student can see this VM. Mentors may act on hidden VMs; say so when you do. |
-| `endpoints`      | LabEndpoint[]    | Ways into the VM (SSH, PowerShell, RDP, HTTP, etc.). A student's catalog, or an author's in student view, lists only the endpoints the student can see or the mentor can use. |
+| `studentVisible` | boolean          | Whether the learner can see this VM. Mentors may act on hidden VMs; say so when you do. |
+| `endpoints`      | LabEndpoint[]    | Ways into the VM (SSH, PowerShell, RDP, HTTP, etc.). A learner's catalog, or an author's in learner view, lists only the endpoints the learner can see or the mentor can use. |
 
 Each `LabEndpoint`:
 
@@ -2136,8 +2136,8 @@ Each `LabEndpoint`:
 | `name`             | string? | Display name. |
 | `description`      | string? | The author's description, if any. |
 | `protocol`         | string? | `ssh`, `powershell`, `rdp`, `vnc`, `telnet`, `http` or `https`. |
-| `studentVisible`   | boolean | Whether the student can see this endpoint. |
-| `mentorAccessible` | boolean | Whether `mentor.environmentCommand.request` can run commands through it for this user. On the Skillable lab platform, an endpoint the author opened to the mentor is usable on a VM the student knows about, and, for a user who can edit the lab, also through an endpoint visible to admins on a VM hidden from students. |
+| `studentVisible`   | boolean | Whether the learner can see this endpoint. |
+| `mentorAccessible` | boolean | Whether `mentor.environmentCommand.request` can run commands through it for this user. On the Skillable lab platform, an endpoint the author opened to the mentor is usable on a VM the learner knows about, and, for a user who can edit the lab, also through an endpoint visible to admins on a VM hidden from learners. |
 
 The catalog carries no addresses or credentials. Hosts may add fields;
 ignore ones you don't recognize.
@@ -2145,7 +2145,7 @@ ignore ones you don't recognize.
 **Timing note.** Some fields — `environment` in particular — depend on
 lab subsystems that may not be ready when the lab fires `host.init`. The
 host sends `host.init` promptly after `mentor.ready`, possibly after a
-short wait for the student's environment selection, with whatever
+short wait for the learner's environment selection, with whatever
 context is available at that moment, and then delivers the remaining
 fields via a follow-up `host.context.update` once they populate. Treat `environment` (and any field) as *may arrive later* — do
 not assume the value present in `host.init` is final.
@@ -2223,7 +2223,7 @@ as inert.
   any time. Do not re-post `mentor.ready` or `mentor.session.opened` on
   every navigation; use `host.context.update` to re-ground.
 - **Teardown.** Skillable may unmount the iframe at any point (session
-  end, student quits). Do not rely on a goodbye handshake.
+  end, learner quits). Do not rely on a goodbye handshake.
 
 Theme and locale can change at any point in the lifecycle. Treat them
 as reactive values.
@@ -2246,7 +2246,7 @@ adapt to the lab's color modes, just ignore theme messages.
 
 These tokens exist only as a convenience: if you'd like the iframe to
 feel continuous with the surrounding Skillable lab chrome (usually the
-nicer UX for students), matching the values here is the shortest path.
+nicer UX for learners), matching the values here is the shortest path.
 
 The Skillable lab uses a CSS-variable theming system keyed off a
 `data-theme` attribute on the document root; every color, font, and

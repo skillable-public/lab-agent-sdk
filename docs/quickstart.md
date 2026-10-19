@@ -58,7 +58,7 @@ Once the lab simulator is open, things to exercise:
   `host.hint.request` to your iframe.
 - Click **Next** to flip to the next page of instructions; the host
   emits `host.context.update` with the new `currentPageIndex` and
-  `pageTitle` so your mentor re-grounds on whatever the student is now
+  `pageTitle` so your mentor re-grounds on whatever the learner is now
   reading.
 - In **Settings &gt; Color Mode**, switch between Light and Dark to send
   `host.theme.change`. Verify your iframe re-themes live.
