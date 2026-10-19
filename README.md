@@ -208,20 +208,20 @@ to restore a clean starting point, and then hands back. For that it may
 start a walkthrough run on a learner's behalf, so a learner's mentor is
 offered `start_run` with walkthrough as its only mode.
 
-Shortcut runs are for lab authors only. The chat refuses a shortcut
-`start_run`, or picking up a shortcut run, for anyone who isn't the
-author, and the backend enforces it: it drops shortcut run state the
-chat sends with a message or tool results, and refuses to continue a
-shortcut run with 403, unless the caller is a lab author. The `role`
+Every run but a walkthrough is for lab authors only. The chat refuses
+such a `start_run`, or picking up such a run, for anyone who isn't the
+author, and the backend enforces it: it drops that run state the chat
+sends with a message or tool results, and refuses to continue such a
+run with 403, unless the caller is a lab author. The `role`
 claim of the verified launch token decides when it has one. Without the
 claim, or without a token (`LaunchToken:ChatAgent:RequireToken` off),
 the posted lab context's `userRole` decides, and a session in which the
 backend has accepted a shortcut run before also passes, so an author
 keeps that access in learner view. A context posted with a token whose
 `role` claim isn't `labAuthor` can't claim to be an author's: the
-backend lowers its `userRole` to the token's. The chat pauses a shortcut
-run when the author switches to learner view, for them to resume back in
-author view.
+backend lowers its `userRole` to the token's. The chat pauses any run
+but a walkthrough when the author switches to learner view, for them to
+resume back in author view.
 
 During a run the mentor's text between actions is one short line, or
 none; the summary it ends the run with is written out in full.
@@ -239,6 +239,21 @@ checkpoint with command output or a screenshot, and ends with one line
 per checkpoint: pass or fail, the evidence, and what blocked a failure.
 The banner says when a run is a shortcut run, and a run picked up again
 keeps its mode.
+
+An author checks the lab as a learner will meet it with `/lab
+walkthrough` or `/lab test`, each optionally with pages, such as `/lab
+test 3-5`. The chat sends either as the request it stands for, such as
+"Test pages 3 to 5 as a learner would, …", and the mentor starts a **lab
+walkthrough** or a **lab test** run. Both do each step in the console as
+the instructions tell the learner to, with only the machines, endpoints
+and credentials a learner has: a step that needs more fails rather than
+being worked around. A step that doesn't work as written gets a proposed
+fix, and the run ends with one line per page, pass or fail. In a lab
+walkthrough the author follows along on screen: the mentor marks each
+spot before it acts there, with a note saying what it's doing and why. A
+lab test goes as fast as the instructions allow, with no marks. Both run
+in author view, where the mentor holds itself to what a learner has; the
+commands aren't offered in learner view.
 
 Run mode is behavior of this sample mentor, not part of the integration
 contract.
