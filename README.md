@@ -240,24 +240,29 @@ per checkpoint: pass or fail, the evidence, and what blocked a failure.
 The banner says when a run is a shortcut run, and a run picked up again
 keeps its mode.
 
-An author checks the lab as a learner will meet it with `/lab
-walkthrough` or `/lab test`, each optionally with pages, such as `/lab
-test 3-5`. The chat sends either as the request it stands for, such as
-"Test pages 3 to 5 as a learner would, …", and the mentor starts a **lab
-walkthrough** or a **lab test** run. Both turn the instructions to each
-page as a learner would, without taking the author away from the chat,
-and do each step in the console as the instructions tell the learner
-to, with only the machines, endpoints
-and credentials a learner has: a step that needs more fails rather than
-being worked around. A step that doesn't work as written gets a proposed
-fix. The run ends with a summary of the issues found, most serious
-first, each with its page and whether a fix was proposed or what the
-author needs to do, then one line per page, pass or fail. In a lab
-walkthrough the author follows along on screen: the mentor marks each
-spot before it acts there, with a note saying what it's doing and why. A
-lab test goes as fast as the instructions allow, with no marks. Both run
-in author view, where the mentor holds itself to what a learner has; the
-commands aren't offered in learner view.
+An author checks the lab as a learner will meet it with `/lab test
+[<pages>] [--marks] [--progress]`, such as `/lab test 3-5 --marks`. The
+chat sends it as the request it stands for, with the command as typed,
+and the mentor starts a **lab test** run. It does each step in the
+console as the instructions tell the learner to, with only the machines,
+endpoints and credentials a learner has: a step that needs more fails
+rather than being worked around. A step that doesn't work as written
+gets a proposed fix. The run ends with a summary of the issues found,
+most serious first, each with its page and whether a fix was proposed or
+what the author needs to do, then one line per page, pass or fail.
+
+- `--marks`: the author follows along on screen. The mentor marks each
+  spot before it acts there, with a note saying what it's doing and why.
+  Without it, the test goes as fast as the instructions allow, with no
+  marks.
+- `--progress`: the mentor records progress as a learner would, turning
+  the instructions to each page (without taking the author away from the
+  chat) and ticking each task once it's confirmed, so the lab ends with a
+  valid completion. Without it, the mentor reads the pages it needs and
+  leaves the tasks and the instructions as they were.
+
+A lab test runs in author view, where the mentor holds itself to what a
+learner has; `/lab` isn't offered in learner view.
 
 Run mode is behavior of this sample mentor, not part of the integration
 contract.
