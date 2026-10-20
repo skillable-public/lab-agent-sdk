@@ -241,7 +241,9 @@ The banner says when a run is a shortcut run, and a run picked up again
 keeps its mode.
 
 An author checks the lab as a learner will meet it with `/lab test
-[<pages>] [--show] [--progress]`, such as `/lab test 3-5 --show`. The
+[--pages <pages>] [--show] [--progress]`, such as `/lab test --pages 3-5
+--show`, where the pages can also go on their own, as in `/lab test 3-5`.
+The
 chat sends it as the request it stands for, with the command as typed,
 and the mentor starts a **lab test** run. It does each step in the
 console as the instructions tell the learner to, with only the machines,
