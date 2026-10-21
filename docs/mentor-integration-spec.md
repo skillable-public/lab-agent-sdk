@@ -784,7 +784,7 @@ once per mark, however it ends, with no envelope `id` of its own.
 | Field       | Type     | Notes |
 |-------------|----------|-------|
 | `requestId` | string?  | The envelope `id` of the `mentor.showInEnvironment.request` that showed the mark. `null` when the host doesn't have it. |
-| `reason`    | string   | Why it ended: `"done"` (the learner clicked its Done button), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down), `"student_input"` (the learner used the console, only for a mark without `done`). Receivers must tolerate unknown values. |
+| `reason`    | string   | Why it ended: `"done"` (the learner clicked its Done button), `"closed"` (the caption's close button), `"replaced"` (the mentor's next mark or tour took its place), `"console_changed"` (another console was selected, it disconnected, or its resolution changed), `"cleared"` (the lab took it down, or the mentor did with `mentor.clearInEnvironment`), `"student_input"` (the learner used the console, only for a mark without `done`), `"mentor_input"` (the mentor acted on the console, only for a mark without `done`). Receivers must tolerate unknown values. |
 
 For a mark with `done`, this is how the mentor hears that the learner
 has done what it asked: `"done"` says they clicked Done, which a mentor
@@ -1291,6 +1291,7 @@ verification model.
 | `mentor.environmentMouse.request` | Optional | Ask the lab to move, click, drag or scroll the mouse at a spot on a screenshot of the console the learner has selected. Reply via `host.environmentMouse.response`. |
 | `mentor.environmentWait.request` | Optional | Ask the lab to wait until the screen of the console the learner has selected changes, or stops changing. Reply via `host.environmentWait.response`. |
 | `mentor.showInEnvironment.request` | Optional | Ask the lab to point at a spot or region of the console the learner has selected, show a tip over it, or walk the learner through a tour of several. Reply via `host.showInEnvironment.response`. |
+| `mentor.clearInEnvironment` | Optional | Ask the lab to take down the mark or tour the mentor has up on the console. No reply. |
 | `mentor.message.sent`           | Optional  | Notification: learner posted a message. |
 | `mentor.response`               | Optional  | Notification: mentor replied. |
 | `mentor.error`                  | Optional  | Notification: the iframe failed to do something. |
@@ -1838,6 +1839,14 @@ when the console changes: another console is selected, it disconnects,
 or its resolution changes. Following the caption's link back to the
 mentor only opens the mentor: the console stays in view beside it, so
 the mark stays up.
+
+**A mark announces what the mentor is about to do, too.** A mark
+without `done` also goes when the mentor itself acts on the console,
+with mouse, keys, typing or a credential, ending with `"mentor_input"`:
+mark a spot, then act there, and the mark doesn't outlive the action.
+A mark with `done`, and a tour, stay up. To take a mark or tour down
+without acting, such as when the mentor's own work ends, send
+`mentor.clearInEnvironment`.
 While the spot is scrolled out of view, the mark hides. The host sends
 [`host.environmentMark.ended`](#hostenvironmentmarkended) when a single
 mark ends, however it ends.
@@ -1901,6 +1910,13 @@ seen. A mentor has three ways to show more than one thing:
 
 Hosts label the caption (the Skillable lab platform as a pointer or a
 tip from the mentor), so the note needn't start with "Tip:".
+
+### `mentor.clearInEnvironment`
+**Optional.** Ask the lab to take down the mark or tour the mentor has
+up on the console, if any. It ends as it would otherwise, with
+`host.environmentMark.ended` or `host.environmentTour.ended`, and the
+reason `"cleared"`. There is no reply, and no payload. A host that
+doesn't support it ignores it.
 
 ### `mentor.viewAs.request`
 **Optional.** Ask the lab to treat a lab author as a learner for
