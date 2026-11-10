@@ -1,0 +1,99 @@
+/*
+ * variables-common.css
+ *
+ * The design tokens the lab simulator and the sample agent share: the
+ * palette, fonts and sizes of docs/spec/core.md section 13, keyed off the
+ * data-theme attribute on the document root (light, dark, highcontrast).
+ */
+
+:root,
+:root[data-theme="light"] {
+  --primary-main:           #136945;
+  --primary-dark:           #0A3E28;
+  --primary-soft:           #DFF0EB;
+  --primary-contrast:       #FFFFFF;
+
+  --accent-main:            #00CA72;
+  --accent-dark:            #00954D;
+  --accent-light:           #E0FFF1;
+  --accent-contrast:        #141414;
+
+  --background-default:     #FFFFFF;
+  --background-contrast-xs: #FBFBFB;
+  --background-contrast-sm: #F2F2F2;
+
+  --text-primary:           #141414;
+  --text-secondary:         #4A4A4A;
+  --text-light:             #676767;
+
+  --divider:                #D2D2D2;
+
+  --error-main:             #D32F2F;
+  --warning-main:           #FFA726;
+  --success-main:           #2E7D32;
+
+  --border-radius:          8px;
+
+  --heading-font-family:    'Lora', Georgia, serif;
+  --body-font-family:       'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --overline-font-family:   'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono-font-family:       'JetBrains Mono', 'Consolas', monospace;
+
+  --font-size-heading-md:   32px;
+  --font-size-heading-sm:   24px;
+  --font-size-heading-xs:   20px;
+  --font-size-body-lg:      20px;
+  --font-size-body-md:      18px;
+  --font-size-body-sm:      16px;
+  --font-size-body-xs:      14px;
+  --font-size-caption:      12px;
+  --font-size-overline:     12px;
+}
+
+:root[data-theme="dark"] {
+  --primary-main:           #00CA72;
+  --primary-dark:           #00954D;
+  --primary-soft:           #E0FFF1;
+  --primary-contrast:       #FFFFFF;
+
+  --accent-main:            #00CA72;
+  --accent-dark:            #00954D;
+  --accent-light:           #E0FFF1;
+  --accent-contrast:        #141414;
+
+  --background-default:     #141414;
+  --background-contrast-xs: #1D1D1D;
+  --background-contrast-sm: #333333;
+
+  --text-primary:           #FFFFFF;
+  --text-secondary:         #E7E7E7;
+  --text-light:             #BDBDBD;
+
+  --divider:                #4A4A4A;
+
+  --error-main:             #D32F2F;
+  --warning-main:           #FFA726;
+  --success-main:           #66BB6A;
+}
+
+:root[data-theme="highcontrast"] {
+  --primary-main:           #000000;
+  --primary-dark:           #000000;
+  --primary-soft:           #FFFFFF;
+  --primary-contrast:       #FFFFFF;
+
+  --accent-main:            #000000;
+  --accent-dark:            #000000;
+  --accent-light:           #FFFFFF;
+  --accent-contrast:        #FFFFFF;
+
+  --background-default:     #FFFFFF;
+  --background-contrast-xs: #FFFFFF;
+  --background-contrast-sm: #FFFFFF;
+
+  --text-primary:           #000000;
+  --text-secondary:         #000000;
+  --text-light:             #000000;
+
+  --divider:                #000000;
+}

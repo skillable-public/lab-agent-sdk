@@ -1,0 +1,14 @@
+# Node
+node_modules/
+
+# Generated self-signed HTTPS certs (see certs/create-self-signed-cert.*)
+certs/*.pfx
+certs/*.key
+certs/*.crt
+
+# IDE
+.vs/
+.vscode/
+*.swp
+.DS_Store
+

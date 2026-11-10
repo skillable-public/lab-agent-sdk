@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lab Agent SDK - Lab simulator</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="../shared/variables-common.css" />
+  <link rel="stylesheet" href="chooser.css" />
+</head>
+<body>
+  <main class="chooser">
+    <header class="chooser__head">
+      <img class="chooser__logo" src="skillable-logo-on-light.svg" alt="Skillable" width="107" height="40" />
+      <h1 class="chooser__title">Lab Agent SDK - Lab simulator</h1>
+      <p class="chooser__subtitle">
+        This simulator embeds a Lab Agent iframe in a simulated Skillable
+        lab and speaks protocol version 2 to it. Test your own agent, or
+        open the <strong>sample agent</strong> that ships in this
+        repository.
+      </p>
+    </header>
+
+    <section class="chooser__cards">
+
+      <!-- ============ Card 1: Test your Lab Agent ============ -->
+      <form class="card" id="card-test" autocomplete="off">
+        <div class="card__head">
+          <h2 class="card__title">Test your Lab Agent</h2>
+          <p class="card__lede">
+            Embed your own agent in the simulated lab to drive it
+            through the handshake and the postMessage contract.
+          </p>
+        </div>
+
+        <label class="card__label" for="mentor-url">Agent iframe URL</label>
+        <input
+          class="card__input"
+          id="mentor-url"
+          name="mentor-url"
+          type="url"
+          placeholder="https://localhost:5173"
+          required
+        />
+        <p class="card__hint">
+          Must be served over HTTPS in production. Localhost / dev URLs are
+          fine while you're building.
+        </p>
+
+        <button type="submit" class="card__cta card__cta--primary">
+          Open the simulated lab
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </form>
+
+      <!-- ============ Card 2: Try the sample agent ============ -->
+      <div class="card">
+        <div class="card__head">
+          <h2 class="card__title">Try the sample agent</h2>
+          <p class="card__lede">
+            Open the simulated lab with the sample agent from
+            <code>src/wwwroot/sample-agent/</code>: a mentor in about 300
+            lines of plain JavaScript.
+          </p>
+        </div>
+
+        <ul class="card__bullets">
+          <li>Does the handshake, declaring mentor mode.</li>
+          <li>Shows a chat, takes screenshots when the policy allows, and answers refusals.</li>
+          <li>Scripted replies, no model, no backend.</li>
+        </ul>
+
+        <button type="button" class="card__cta" id="btn-sample">
+          Open with the sample agent
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <footer class="chooser__foot">
+      <p>
+        Reading the spec first? Start with <code>docs/spec/core.md</code>
+        in this repository.
+      </p>
+      <p>
+        The sample agent on its own:
+        <a href="#" id="sample-agent-link"><code>sample-agent/</code></a>.
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    // The sample agent is served from the agent port (7081) when this page is
+    // on the simulator port (7080), so the two are cross-origin as in a real
+    // lab. On any other port it is served from this origin.
+    function sampleAgentUrl() {
+      const here = new URL(window.location.href);
+      if (here.port === '7080') {
+        here.port = '7081';
+      }
+      return new URL('/sample-agent/', here.origin).toString();
+    }
+
+    function gotoLab(agentUrl) {
+      const target = new URL('lab-simulator.html', window.location.href);
+      target.searchParams.set('mentor', agentUrl);
+      window.location.assign(target.toString());
+    }
+
+    document.getElementById('card-test').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const url = document.getElementById('mentor-url').value.trim();
+      if (url) gotoLab(url);
+    });
+
+    document.getElementById('btn-sample').addEventListener('click', () => {
+      gotoLab(sampleAgentUrl());
+    });
+
+    (function fillSampleAgentLink() {
+      const a = document.getElementById('sample-agent-link');
+      const url = sampleAgentUrl();
+      a.href = url;
+      a.querySelector('code').textContent = url;
+    })();
+  </script>
+</body>
+</html>

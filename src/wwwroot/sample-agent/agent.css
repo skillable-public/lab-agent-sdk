@@ -1,0 +1,70 @@
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--body-font-family);
+  font-size: var(--font-size-body-xs);
+  background: var(--background-default);
+  color: var(--text-primary);
+}
+
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--divider);
+  background: var(--background-contrast-xs);
+}
+.bar__title { font-family: var(--heading-font-family); font-weight: 600; }
+.bar__status { color: var(--text-light); font-size: var(--font-size-caption); }
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: 12px;
+  list-style: none;
+}
+.msg {
+  max-width: 85%;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: var(--border-radius);
+  white-space: pre-wrap;
+  background: var(--background-contrast-sm);
+}
+.msg--user { margin-left: auto; background: var(--primary-main); color: var(--primary-contrast); }
+.msg img { display: block; max-width: 100%; margin-top: 8px; border-radius: 4px; }
+
+.actions { display: flex; gap: 8px; padding: 0 12px; flex-wrap: wrap; }
+.action, .composer__send {
+  padding: 6px 10px;
+  border: 1px solid var(--primary-main);
+  border-radius: var(--border-radius);
+  background: var(--background-default);
+  color: var(--primary-main);
+  font: inherit;
+  cursor: pointer;
+}
+.composer__send { background: var(--primary-main); color: var(--primary-contrast); }
+.action:focus-visible, .composer__send:focus-visible, .composer__input:focus-visible {
+  outline: 3px solid var(--accent-main);
+  outline-offset: 1px;
+}
+
+.composer { display: flex; gap: 8px; padding: 12px; }
+.composer__input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--divider);
+  border-radius: var(--border-radius);
+  background: var(--background-contrast-xs);
+  color: var(--text-primary);
+  font: inherit;
+}
