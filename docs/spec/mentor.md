@@ -645,6 +645,7 @@ payload is the localized snake_case exception).
 | `latencyMilliseconds` | integer                                     | Most recent measured one-way latency to the environment, in milliseconds. The host decides how it measures (ping, controller round-trip, last network sample, etc.). |
 | `quality`            | `"Excellent"` \| `"Good"` \| `"OK"` \| `"Poor"` | Human-readable category derived by the host from the latency (and possibly other signals). The host owns the thresholds. |
 | `consoleConnected`   | boolean?                                     | Whether the selected console is connected, as in [`LabContext.consoleConnected`](./core.md#10-labcontext). Latency measures the network, so a good `quality` doesn't mean the console is connected. Absent when the host doesn't know. |
+| `environmentConnection` | string?                                  | How the selected console's connection stands, as in [`LabContext.environmentConnection`](./core.md#10-labcontext). Absent when the host doesn't know. |
 
 Suggested mapping (the sample host uses these, real hosts may tune
 them differently):
@@ -1355,7 +1356,7 @@ For anything only a click can reach, use `agent.environment.mouse.request`.
 | `message` | string?  | Human-readable detail for `reason`. `null` when `ok` is `true`. |
 | `screenshot` | object? | Only when the request asked for `screenshot` and `ok` is `true`: the screen after the keys, as described under [Screenshot after an action](#screenshot-after-an-action). |
 | `waited`  | object?  | Only when the request gave `waitUntil` and `ok` is `true`: how the wait went, as described under [Screenshot after an action](#screenshot-after-an-action). |
-| `terminal` | object? | On a terminal, when `ok` is `true`: `{ lineBefore, line, fullScreen? }`, as in [`host.environment.sendText.response`](#hostenvironmentsendtextresponse). `line` is read once the keys, and any `waitUntil`, are done. |
+| `terminal` | object? | On a terminal, when `ok` is `true`: `{ lineBefore, line, fullScreen? }`, as in [`host.environment.sendText.response`](#hostenvironmentsendtextresponse). `line` is read once the keys and their `waitUntil` are done, or, without a `waitUntil`, once the terminal shows the keys' effect, or after about a second if it shows none, so it is the line the keys left rather than the one before them. |
 
 Hosts advertise this response in `host.session.init.capabilities` when the lab
 has a console to press keys in.
@@ -1398,6 +1399,7 @@ seconds.
 | `selected`  | object?  | What is selected now: `{ name, machine, endpoint, console }`, the well-known keys of [`LabContext.environment`](./core.md#10-labcontext). Absent when `ok` is `false`. |
 | `previous`  | object?  | What was selected before, in the same shape, to switch back to. `null` when nothing was. |
 | `connected` | boolean? | `true` once the new console reports it is connected, `false` when it still reports it isn't at the deadline, `null` when that isn't known: the console gives no connection signal, or hadn't reported by the deadline. |
+| `environmentConnection` | string? | How the new console's connection stands as the host answers, as in [`LabContext.environmentConnection`](./core.md#10-labcontext). It can be known when `connected` is `null`, such as for a console open in its own window. Absent when the host doesn't know. |
 
 A hidden machine, endpoint or container is refused only for a user who
 can't see it, such as a learner; a lab author seeing hidden machines
@@ -1500,8 +1502,8 @@ Half a second of stillness can come before a slow app has reacted, such
 as a course that takes several seconds to move to its next page. For
 those, a keys or mouse request can say what to wait for with `waitUntil`, an object
 with the fields of [`agent.environment.wait.request`](#agentenvironmentwaitrequest):
-`until` (`"changes"` or `"settles"`, and on a terminal `"text"` or
-`"finished"`), `timeoutSeconds`, `quietSeconds`, `region` and `text`.
+`until` (`"changes"` or `"settles"`, and on a terminal `"text"`,
+`"finished"` or `"asks"`), `timeoutSeconds`, `quietSeconds`, `region` and `text`.
 A wait answers with what the screen shows, so the host ignores
 `waitUntil`, as it ignores `screenshot`, while the policy's `screenshots`
 is off.
@@ -1579,10 +1581,10 @@ shows.
 
 | Field            | Type     | Notes |
 |------------------|----------|-------|
-| `until`          | string   | `"changes"`: until the screen visibly differs from what it is measured from. That is the latest screenshot any part of the lab page took, for any reason and not only one returned to the agent, if it shows this console, so a change that came before the request answers at once, as does a screen at a different size. Otherwise it is the screen when the wait starts. `"settles"`: until it stops changing for `quietSeconds`. On a terminal only: `"text"`, until `text` shows on the terminal, and `"finished"`, until the command typed last finishes. See **On a terminal** below. |
+| `until`          | string   | `"changes"`: until the screen visibly differs from what it is measured from. That is the latest screenshot any part of the lab page took, for any reason and not only one returned to the agent, if it shows this console, so a change that came before the request answers at once, as does a screen at a different size. Otherwise it is the screen when the wait starts. `"settles"`: until it stops changing for `quietSeconds`. On a terminal only: `"text"`, until `text` shows on the terminal; `"finished"`, until the command typed last finishes; and `"asks"`, the same for a command expected to ask for input, ending sooner at a question. See **On a terminal** below. |
 | `timeoutSeconds` | number?  | The longest to wait, more than 0 and at most 600. Defaults to 10. |
-| `quietSeconds`   | number?  | `"settles"`: how long the screen must stay still, more than 0, at most 30 and no more than `timeoutSeconds`. Defaults to 2, or to `timeoutSeconds` when that is shorter. `"finished"`: how long the terminal may stay the same without the prompt before the wait ends as `"stopped"`, at most 30. Defaults to 5. |
-| `region`         | object?  | `{ x, y, width, height, screenshotWidth, screenshotHeight }`: watch only this part of the screen, its top left corner and size in pixels of the latest screenshot, kept on it, and that screenshot's size. See **Regions** below. Not with `"text"` or `"finished"`. |
+| `quietSeconds`   | number?  | `"settles"`: how long the screen must stay still, more than 0, at most 30 and no more than `timeoutSeconds`. Defaults to 2, or to `timeoutSeconds` when that is shorter. `"finished"` and `"asks"`: how long the terminal may stay the same without the prompt before the wait ends as `"stopped"`, at most 30. Defaults to 5. |
+| `region`         | object?  | `{ x, y, width, height, screenshotWidth, screenshotHeight }`: watch only this part of the screen, its top left corner and size in pixels of the latest screenshot, kept on it, and that screenshot's size. See **Regions** below. Not with `"text"`, `"finished"` or `"asks"`. |
 | `text`           | string?  | `"text"` only, and required for it: the text to wait for, 1 to 200 characters. |
 
 **What counts as a change.** The host compares a small grayscale
@@ -1614,7 +1616,9 @@ screenshot's copy of the region.
 `"terminal"`), the host watches its text rather than its image:
 
 - **Changes and settles compare text.** `"changes"` and `"settles"`
-  compare the terminal's text, not screenshots of it. A `region` still
+  compare the terminal's text and where its cursor is, not screenshots of
+  it, so the cursor moving counts as a change, as when an editor's arrow
+  keys or a menu's highlight move it. A `region` still
   compares the screenshot. `measuredFrom: "screenshot"` means the
   latest [`host.environment.screenText.response`](#hostenvironmentscreentextresponse)
   read.
@@ -1637,6 +1641,13 @@ screenshot's copy of the region.
   input, such as a password, or working without output. Look at the
   terminal's text to tell which. With nothing typed into that terminal
   yet, it answers `"failed"`.
+- **`"asks"`** waits as `"finished"` does, for a command expected to
+  ask for input, such as `sudo` or an installer's question. It also ends
+  as `"stopped"` about a second after the terminal goes quiet with the
+  cursor after text on its line, as it sits at a question or a password
+  prompt, rather than after the full `quietSeconds`. A command that goes
+  quiet with the cursor on an empty line is taken as working without
+  output, and gets the full `quietSeconds`.
 - **After `"stopped"`, it still waits for the shell.** When the last
   `"finished"` wait on that terminal ended `"stopped"`, the next input
   goes to the command that was waiting, and the next `"finished"` wait
@@ -1647,8 +1658,8 @@ screenshot's copy of the region.
 - **The line it ended on.** The response carries `line`, the line the
   cursor is on as the wait ends.
 
-On a console that isn't a terminal, `"text"` and `"finished"` answer
-`"not_supported"`.
+On a console that isn't a terminal, `"text"`, `"finished"` and `"asks"`
+answer `"not_supported"`.
 
 Set the iframe-side timeout a little longer than `timeoutSeconds`.
 
@@ -1660,8 +1671,8 @@ doesn't count toward the cap.
 
 | Field      | Type     | Notes |
 |------------|----------|-------|
-| `ok`       | boolean  | `true` when the screen did what was asked in time: changed, for `"changes"`, stopped changing, for `"settles"`, showed the text, for `"text"`, or showed the prompt again, for `"finished"`. |
-| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't do what was asked within `timeoutSeconds`), `"stopped"` (`"finished"` only: the terminal stayed the same for `quietSeconds` without the prompt), `"stale"` (the `region` is on a screenshot that no longer matches the console; see **Regions** above), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the learner switched consoles), `"not_supported"` (the selected console has no screen to watch, or `"text"` or `"finished"` on a console that isn't a terminal), `"failed"` (anything else, including bad arguments, and `"finished"` with nothing typed into the terminal yet). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
+| `ok`       | boolean  | `true` when the screen did what was asked in time: changed, for `"changes"`, stopped changing, for `"settles"`, showed the text, for `"text"`, or showed the prompt again, for `"finished"` and `"asks"`. |
+| `reason`   | string?  | Failure category when `ok` is `false`: `"timeout"` (the screen didn't do what was asked within `timeoutSeconds`), `"stopped"` (`"finished"` and `"asks"` only: the terminal stayed the same for `quietSeconds` without the prompt, or, for `"asks"`, for about a second at a question), `"stale"` (the `region` is on a screenshot that no longer matches the console; see **Regions** above), `"not_available"` (nothing is selected, or the screen went away while waiting, such as when the learner switched consoles), `"not_supported"` (the selected console has no screen to watch, or `"text"`, `"finished"` or `"asks"` on a console that isn't a terminal), `"failed"` (anything else, including bad arguments, and `"finished"` or `"asks"` with nothing typed into the terminal yet). `null` when `ok` is `true`. Receivers must tolerate unknown values. |
 | `message`  | string?  | Human-readable detail for `reason`, written so a model can act on it. `null` when `ok` is `true`. |
 | `waitedMs` | number   | How long the host waited, in milliseconds. |
 | `measuredFrom` | string? | For `"changes"`: what the change was measured from, `"screenshot"` (a screenshot, as set out under `until` in [`agent.environment.wait.request`](#agentenvironmentwaitrequest), or on a terminal the latest `host.environment.screenText.response` read) or `"now"` (the screen when the wait began, or, after an action, just before the action went out). Absent for the other values of `until`. Receivers must tolerate unknown values. |
@@ -1882,6 +1893,8 @@ When waiting, set the iframe-side timeout a little longer than
 | `ready`            | boolean  | Whether the lab's environment is running, as [`LabContext.labReady`](./core.md#10-labcontext) says. |
 | `state`            | string   | `"scheduled"`, `"off"`, `"building"`, `"starting"`, `"running"`, `"saving"`, `"saved"`, `"resuming"`, `"ending"`, or `"busy"` for anything else. Receivers must tolerate unknown values. |
 | `consoleConnected` | boolean? | As [`LabContext.consoleConnected`](./core.md#10-labcontext). Left out when nothing is selected, or the host doesn't know. |
+| `environmentConnection` | string? | As [`LabContext.environmentConnection`](./core.md#10-labcontext). Left out when nothing is selected, or the host doesn't know. |
+| `consoles` | object[]? | Each console the lab has open, selected or not, that the user may know of: `{ machine, endpoint, environmentConnection?, inOwnWindow?, selected? }`. `machine` and `endpoint` are aliases as in `LabMachine` (`endpoint` `null` for a machine's own console); `environmentConnection` as above; `inOwnWindow: true` for a console open in a window of its own; `selected: true` for the selected one. A console the host can say nothing about is left out. Left out when there are none. |
 | `waitedSeconds`    | integer  | How long the host waited, in seconds. `0` when it answered at once. |
 | `timedOut`         | boolean  | `true` when `waitSeconds` passed before the lab was ready. |
 
