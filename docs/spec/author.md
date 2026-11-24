@@ -444,6 +444,15 @@ Skillable lab platform does in a lab author's own view.
 | `ok`      | boolean | `true` when the preview is drawn. |
 | `reason`  | string? | When `ok` is `false`: `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
 
+### `host.instructions.edit.preview.decided`
+
+The author pressed **Apply** or **Cancel** on a preview's card in the
+lab: `{ "decision": "apply" | "cancel" }`, for the whole change. Act on
+it as on your own Apply or Cancel: send each edit with
+`agent.instructions.edit.request` and then close the preview, or drop the
+change. The host takes the previews away at once on Cancel, and waits for
+your close on Apply.
+
 ### `agent.instructions.edit.preview.close.request`
 
 Ask the host to take the change's previews away, once the author applied
