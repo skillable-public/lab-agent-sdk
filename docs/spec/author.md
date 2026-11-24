@@ -248,8 +248,10 @@ lab's authors, so it outlives the session.
   that the author fixed it themselves, and changes nothing. The card is
   the host's own; the agent can't press it, though your own UI may
   offer the author an Apply button that asks the host to press the
-  card's: see
-  [`agent.instructions.suggestions.apply.request`](#agentinstructionssuggestionsapplyrequest).
+  card's, and a Dismiss button that asks it to press Dismiss: see
+  [`agent.instructions.suggestions.apply.request`](#agentinstructionssuggestionsapplyrequest)
+  and
+  [`agent.instructions.suggestions.dismiss.request`](#agentinstructionssuggestionsdismissrequest).
   The author's decision comes back as
   `host.instructions.suggestionDecided`.
 - **To make an edit the author asked for, or a build run's**, see
@@ -422,3 +424,21 @@ your own.
 | `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. A failed one stays open. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
 | `reason`       | string? | When `ok` is `false`: `"not_open"` (it was decided, or isn't one this page shows), `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
+
+### `agent.instructions.suggestions.dismiss.request`
+
+Ask the host to dismiss an open suggestion, as the author pressing
+**Dismiss** on its card: for a Dismiss button in your own UI, beside the
+suggestion, that the author pressed. The payload is
+`{ "suggestionId": "..." }`. The card goes as when the author presses
+it there, and the decision also reaches you as
+`host.instructions.suggestionDecided`. Only for a host that lists
+`host.instructions.suggestions.dismiss.response` in its capabilities, as
+the Skillable lab platform does in a lab author's own view. Send it only
+when the author pressed your button: never dismiss a suggestion on your
+own.
+
+### `host.instructions.suggestions.dismiss.response`
+
+As `host.instructions.suggestions.apply.response`, with `status`
+`"dismissed"`, and `"not_allowed"` when the author may not decide it.

@@ -54,6 +54,8 @@ list the fields of success.
 | `host.instructions.suggestions.list.response` | H>A | `agent.instructions.suggestions.list.request` | `ok`, `suggestions` | | [author](./author.md#hostinstructionssuggestionslistresponse) |
 | `agent.instructions.suggestions.apply.request` | A>H | `host.instructions.suggestions.apply.response` | `suggestionId` | Presses the suggestion's card's Apply. Only when the author pressed your Apply. | [author](./author.md#agentinstructionssuggestionsapplyrequest) |
 | `host.instructions.suggestions.apply.response` | H>A | `agent.instructions.suggestions.apply.request` | `ok`, `suggestionId` (string), `status`, `message?` | `applied`, `stale` or `failed`. | [author](./author.md#hostinstructionssuggestionsapplyresponse) |
+| `agent.instructions.suggestions.dismiss.request` | A>H | `host.instructions.suggestions.dismiss.response` | `suggestionId` | Presses the suggestion's card's Dismiss. Only when the author pressed your Dismiss. | [author](./author.md#agentinstructionssuggestionsdismissrequest) |
+| `host.instructions.suggestions.dismiss.response` | H>A | `agent.instructions.suggestions.dismiss.request` | `ok`, `suggestionId` (string), `status`, `message?` | `dismissed`. | [author](./author.md#hostinstructionssuggestionsdismissresponse) |
 
 ## tasks
 
