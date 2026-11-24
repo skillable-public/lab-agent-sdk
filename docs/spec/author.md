@@ -428,11 +428,12 @@ your own.
 
 ### `agent.instructions.edit.preview.request`
 
-Ask the host to draw an edit you propose where it applies, with its
-current and proposed text and no decisions, for the author to read in
-context before they apply it in your UI. The payload is
-`agent.instructions.suggest.request`'s. One preview at a time: another
-replaces it. Only for a host that lists
+Ask the host to draw a change you propose, each of its edits where it
+applies, with its current and proposed text and no decisions, for the
+author to read in context before they apply it in your UI. The payload is
+`{ "edits": [...] }`, each edit as `agent.instructions.suggest.request`
+gives one. One edit opens at its place; several open the first, with the
+host's arrows between them. One change at a time: another replaces it. Only for a host that lists
 `host.instructions.edit.preview.response` in its capabilities, as the
 Skillable lab platform does in a lab author's own view.
 
@@ -445,8 +446,8 @@ Skillable lab platform does in a lab author's own view.
 
 ### `agent.instructions.edit.preview.close.request`
 
-Ask the host to take the preview away, once the author applied or
-cancelled the change. The payload is `{}`. Answered by
+Ask the host to take the change's previews away, once the author applied
+or cancelled it. The payload is `{}`. Answered by
 `host.instructions.edit.preview.close.response`, `{ "ok": true }`.
 
 ### `agent.instructions.suggestions.dismiss.request`
