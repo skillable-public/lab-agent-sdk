@@ -255,9 +255,9 @@ lab's authors, so it outlives the session.
   The author's decision comes back as
   `host.instructions.suggestionDecided`.
 - **To make an edit the author asked for, or a build run's**, see
-  [`agent.instructions.edit.request`](#agentinstructionseditrequest).
-  The host decides what becomes of it: a build run's is saved at once,
-  and any other waits on its card for the author.
+  [`agent.instructions.edit.request`](#agentinstructionseditrequest):
+  show it to the author in your own UI, and send it once they apply it
+  there. A build run's is sent at once.
 - **Anywhere else**, including a learner's agent, the suggestion is
   filed silently, for the lab's inbox, where an author accepts or
   dismisses it later. Don't tell a learner you filed one, unless it
@@ -332,20 +332,21 @@ folded, when the page reloads.
 ### `agent.instructions.edit.request`
 
 **Optional.** Edit the instructions or an activity: a change the author
-asked for, or one a build run makes. The payload is
-`agent.instructions.suggest.request`'s, with the same limits. The host
-files it as a suggestion, so the lab's inbox and the run's record keep
-a trail of it, and decides what becomes of it:
+asked for and applied in your UI, or one a build run makes. The payload
+is `agent.instructions.suggest.request`'s, with the same limits. The host
+makes the edit at once, as the author, the same way the author's Apply on
+a suggestion would, and keeps it as an applied suggestion, so the lab's
+inbox and the run's record keep a trail of it. An edit it can't make
+leaves no record. No card is drawn, and no
+`host.instructions.suggestionDecided` follows.
 
-- **In a build run**, it makes the edit at once, as the author, the
-  same way the author's Apply would, since starting the run was the
-  author's approval. No card is drawn, and no
-  `host.instructions.suggestionDecided` follows.
-- **Anywhere else in the author's own view**, it leaves the edit open,
-  on its card, for the author to apply, as a suggestion's.
-  `host.instructions.suggestionDecided` follows when they decide it.
-- **In a QA run**, it refuses it: a QA run only suggests, giving each
-  fix with its finding.
+Outside a build run, send it only once the author applied the change in
+your UI: show them the change first, and drop it when they cancel. Before
+they decide, you may ask the host to draw it where it applies, with
+[`agent.instructions.edit.preview.request`](#agentinstructionseditpreviewrequest).
+In a build run, send it at once, since starting the run was the author's
+approval. In a QA run it is refused: a QA run only suggests, giving each
+fix with its finding.
 
 Allowed only in the author's own view, and only for what the author may
 edit. For a fix the author didn't ask for, suggest.
@@ -356,7 +357,7 @@ edit. For a fix the author didn't ask for, suggest.
 |----------------|---------|-------|
 | `ok`           | boolean | `true` when the edit was filed, whether or not it was made. |
 | `suggestionId` | string? | Its suggestion's id. |
-| `status`       | string? | `"open"` (it waits on its card for the author), or in a build run `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. |
+| `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. Only an applied edit is kept. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
 | `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, or the author may not edit what it changes), `"not_open"`, `"failed"`. |
 
@@ -424,6 +425,29 @@ your own.
 | `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. A failed one stays open. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
 | `reason`       | string? | When `ok` is `false`: `"not_open"` (it was decided, or isn't one this page shows), `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
+
+### `agent.instructions.edit.preview.request`
+
+Ask the host to draw an edit you propose where it applies, with its
+current and proposed text and no decisions, for the author to read in
+context before they apply it in your UI. The payload is
+`agent.instructions.suggest.request`'s. One preview at a time: another
+replaces it. Only for a host that lists
+`host.instructions.edit.preview.response` in its capabilities, as the
+Skillable lab platform does in a lab author's own view.
+
+### `host.instructions.edit.preview.response`
+
+| Field     | Type    | Notes |
+|-----------|---------|-------|
+| `ok`      | boolean | `true` when the preview is drawn. |
+| `reason`  | string? | When `ok` is `false`: `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
+
+### `agent.instructions.edit.preview.close.request`
+
+Ask the host to take the preview away, once the author applied or
+cancelled the change. The payload is `{}`. Answered by
+`host.instructions.edit.preview.close.response`, `{ "ok": true }`.
 
 ### `agent.instructions.suggestions.dismiss.request`
 
