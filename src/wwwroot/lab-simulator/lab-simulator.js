@@ -89,7 +89,7 @@
   const LEARNER_BASE = {
     screenshots: 'on', showOnScreen: 'on', actInEnvironment: 'ask', offerAllowForLab: 'off', actionsPerRequest: 10,
     typeCredentials: 'on', runCommands: 'on', checkTasks: 'off', activities: 'off', setVariables: 'off',
-    evaluateActivities: 'off', suggestEdits: 'off', applyEdits: 'off', pasteImages: 'off',
+    evaluateActivities: 'off', suggestEdits: 'off', pasteImages: 'off',
     learnerNotice: 'notRequired', scope: 'lab', qaRuns: 'off',
   };
   const POLICIES = {

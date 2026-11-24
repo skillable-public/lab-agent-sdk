@@ -241,17 +241,21 @@ doesn't work, a wrong answer key, files it as a **suggestion**: an edit
 to one instructions page or to one activity. The host stores it for the
 lab's authors, so it outlives the session.
 
-- **In author mode**, with the policy's `applyEdits` on or `direct` and
-  the author's rights to edit what the suggestion changes, the host also
-  draws a card where the edit applies, showing the current and proposed
-  text with **Apply**, **Mark fixed** and **Dismiss**. Apply makes the
-  edit in the lab. Mark fixed records that the author fixed it
-  themselves, and changes nothing. The card is the host's own; the
-  agent can't press it. The author's decision comes back as
+- **In author mode**, with the author's rights to edit what the
+  suggestion changes, the host also draws a card where the edit applies,
+  showing the current and proposed text with **Apply**, **Mark fixed**
+  and **Dismiss**. Apply makes the edit in the lab. Mark fixed records
+  that the author fixed it themselves, and changes nothing. The card is
+  the host's own; the agent can't press it, though your own UI may
+  offer the author an Apply button that asks the host to press the
+  card's: see
+  [`agent.instructions.suggestions.apply.request`](#agentinstructionssuggestionsapplyrequest).
+  The author's decision comes back as
   `host.instructions.suggestionDecided`.
-- **With `applyEdits` `direct`**, you may also make an edit yourself,
-  with no card: see
+- **To make an edit the author asked for, or a build run's**, see
   [`agent.instructions.edit.request`](#agentinstructionseditrequest).
+  The host decides what becomes of it: a build run's is saved at once,
+  and any other waits on its card for the author.
 - **Anywhere else**, including a learner's agent, the suggestion is
   filed silently, for the lab's inbox, where an author accepts or
   dismisses it later. Don't tell a learner you filed one, unless it
@@ -274,6 +278,7 @@ instructions document, activities included. Allowed when the policy's
 | `reason`    | string  | Why, in a sentence or two the author reads on the card. At most 2000 characters. |
 | `runId`     | string? | The QA run this belongs to. At most 64 characters. |
 | `findingId` | string? | The run's finding this fixes. At most 64 characters. |
+| `suggestionId` | string? | An open suggestion of the lab's that this edit improves, as `host.instructions.suggestions.list.response` gives it: the host files the edit in its place, so the author has one suggestion, not two. |
 
 The host checks the whole suggestion and never cuts it, since a cut
 find would match something else. A suggestion that doesn't fit is
@@ -291,7 +296,7 @@ include it is in the `reason`, or report it as a finding.
 | `ok`           | boolean | `true` when the suggestion was stored. |
 | `suggestionId` | string? | Its id, a string. `host.instructions.suggestionDecided` carries the same id. |
 | `status`       | string? | `"open"`. |
-| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off), `"too_many"` (the lab instance holds 50 open suggestions; wait for the author to decide some), `"failed"` (anything else, including a malformed suggestion). |
+| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off), `"not_open"` (the `suggestionId` it improves is no longer open), `"too_many"` (the lab instance holds 50 open suggestions; wait for the author to decide some), `"failed"` (anything else, including a malformed suggestion). |
 | `message`      | string? | Human-readable detail. |
 
 ### `host.instructions.suggestionDecided`
@@ -324,17 +329,24 @@ folded, when the page reloads.
 
 ### `agent.instructions.edit.request`
 
-**Optional.** Make an edit to the lab yourself, without waiting for the
-author: for building or repairing a lab. The payload is
+**Optional.** Edit the instructions or an activity: a change the author
+asked for, or one a build run makes. The payload is
 `agent.instructions.suggest.request`'s, with the same limits. The host
 files it as a suggestion, so the lab's inbox and the run's record keep
-a trail of it, and makes it at once, as the author, the same way the
-author's Apply would. No card is drawn, and no
-`host.instructions.suggestionDecided` follows.
+a trail of it, and decides what becomes of it:
 
-Allowed only in the author's own view, when the policy's `applyEdits`
-is `direct`, and only for what the author may edit. Edit only what the
-author asked for or what a QA run found; for anything else, suggest.
+- **In a build run**, it makes the edit at once, as the author, the
+  same way the author's Apply would, since starting the run was the
+  author's approval. No card is drawn, and no
+  `host.instructions.suggestionDecided` follows.
+- **Anywhere else in the author's own view**, it leaves the edit open,
+  on its card, for the author to apply, as a suggestion's.
+  `host.instructions.suggestionDecided` follows when they decide it.
+- **In a QA run**, it refuses it: a QA run only suggests, giving each
+  fix with its finding.
+
+Allowed only in the author's own view, and only for what the author may
+edit. For a fix the author didn't ask for, suggest.
 
 ### `host.instructions.edit.response`
 
@@ -342,9 +354,9 @@ author asked for or what a QA run found; for anything else, suggest.
 |----------------|---------|-------|
 | `ok`           | boolean | `true` when the edit was filed, whether or not it was made. |
 | `suggestionId` | string? | Its suggestion's id. |
-| `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. |
+| `status`       | string? | `"open"` (it waits on its card for the author), or in a build run `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
-| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (`applyEdits` isn't `direct`, or the author may not edit what it changes), `"failed"`. |
+| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, or the author may not edit what it changes), `"not_open"`, `"failed"`. |
 
 After `"applied"`, read the page or list the activities again before
 your next edit to them.
@@ -358,8 +370,7 @@ author decides or closes one. The payload is `{}`, or `{ "suggestionId":
 "..." }` to open just that suggestion's card, as a Show button beside a
 filed suggestion does. Only for a host that lists
 `host.instructions.suggestions.review.response` in its capabilities, as
-the Skillable lab platform does in a lab author's own view when the
-author policy has `applyEdits` on.
+the Skillable lab platform does in a lab author's own view.
 
 ### `host.instructions.suggestions.review.response`
 
@@ -371,3 +382,43 @@ author policy has `applyEdits` on.
 Decisions made during the review reach you as
 `host.instructions.suggestionDecided`, as any other decision on a card
 does.
+
+### `agent.instructions.suggestions.list.request`
+
+Ask the host for the lab's open suggestions, from this launch and
+earlier ones of the same instructions, before you suggest or make
+edits: when an open one covers the same problem, leave it be, or give
+its `suggestionId` with your better edit so it is improved in place.
+The payload is `{}`. Only for a host that lists
+`host.instructions.suggestions.list.response` in its capabilities, as
+the Skillable lab platform does in a lab author's own view.
+
+### `host.instructions.suggestions.list.response`
+
+| Field         | Type    | Notes |
+|---------------|---------|-------|
+| `ok`          | boolean | `true` when the suggestions were read. |
+| `suggestions` | array   | Each `{ suggestionId, target, current, proposed, reason }`, as `agent.instructions.suggest.request` gives them. |
+
+### `agent.instructions.suggestions.apply.request`
+
+Ask the host to apply an open suggestion, as the author pressing
+**Apply** on its card: for an Apply button in your own UI, beside the
+suggestion, that the author pressed. The payload is
+`{ "suggestionId": "..." }`. The card, the page and the lab go as when
+the author presses it there, and the decision also reaches you as
+`host.instructions.suggestionDecided`. Only for a host that lists
+`host.instructions.suggestions.apply.response` in its capabilities, as
+the Skillable lab platform does in a lab author's own view. Send it
+only when the author pressed your button: never apply a suggestion on
+your own.
+
+### `host.instructions.suggestions.apply.response`
+
+| Field          | Type    | Notes |
+|----------------|---------|-------|
+| `ok`           | boolean | `true` when the host decided it, whether or not the edit was made. |
+| `suggestionId` | string? | As given. |
+| `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. A failed one stays open. |
+| `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
+| `reason`       | string? | When `ok` is `false`: `"not_open"` (it was decided, or isn't one this page shows), `"not_allowed"` (the author may not edit what it changes), `"failed"`. |

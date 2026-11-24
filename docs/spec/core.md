@@ -698,7 +698,7 @@ The host, in response (abridged):
       "mode": "mentor",
       "prompts": { "organization": "Be encouraging.", "lab": null },
       "qa": { "allowed": false },
-      "policy": { "screenshots": "on", "showOnScreen": "on", "actInEnvironment": "ask", "offerAllowForLab": "on", "actionsPerRequest": 10, "activities": "question", "suggestEdits": "on", "pasteImages": "off", "attachDocuments": "off", "learnerNotice": "required", "scope": "lab", "typeCredentials": "off", "runCommands": "off", "checkTasks": "off", "setVariables": "off", "evaluateActivities": "off", "applyEdits": "off", "qaRuns": "off" },
+      "policy": { "screenshots": "on", "showOnScreen": "on", "actInEnvironment": "ask", "offerAllowForLab": "on", "actionsPerRequest": 10, "activities": "question", "suggestEdits": "on", "pasteImages": "off", "attachDocuments": "off", "learnerNotice": "required", "scope": "lab", "typeCredentials": "off", "runCommands": "off", "checkTasks": "off", "setVariables": "off", "evaluateActivities": "off", "qaRuns": "off" },
       "qaRequest": null,
       "challengePrompt": null
     }
@@ -1003,7 +1003,6 @@ object leaves out is off, and a number it leaves out is no limit.
 | `setVariables` | `off`, `on` | Setting lab variables. Author only. |
 | `evaluateActivities` | `off`, `on` | Evaluating and answering activities. Author only. |
 | `suggestEdits` | `off`, `on` | Filing suggested edits. |
-| `applyEdits` | `off`, `on`, `direct` | What becomes of suggested edits in the author's own view. `on`: a card with Apply, Mark fixed and Dismiss. `direct`: the cards, and you may also edit the lab yourself with `agent.instructions.edit.request`. Author only. |
 | `pasteImages` | `off`, `on` | Pasting images into your chat. The host can't see your UI, so this is yours to enforce; it is also signed as `agent_paste_images`. |
 | `attachDocuments` | `off`, `on` | Attaching documents to your chat. Yours to enforce, as `pasteImages` is; it is also signed as `agent_attach_documents`. |
 | `learnerNotice` | `required`, `notRequired` | Whether the learner accepted a consent notice before your tab opened. The host shows it; your iframe loads only once it is accepted. |
