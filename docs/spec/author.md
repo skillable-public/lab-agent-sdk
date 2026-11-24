@@ -297,7 +297,7 @@ include it is in the `reason`, or report it as a finding.
 |----------------|---------|-------|
 | `ok`           | boolean | `true` when the suggestion was stored. |
 | `suggestionId` | string? | Its id, a string. `host.instructions.suggestionDecided` carries the same id. |
-| `status`       | string? | `"open"`. |
+| `status`       | string? | `"open"`, or `"dismissed"` when the author dismissed the same fix at the same spot before: it isn't filed again, `suggestionId` is the dismissed suggestion's, and no card is drawn. |
 | `reason`       | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off), `"not_open"` (the `suggestionId` it improves is no longer open), `"too_many"` (the lab instance holds 50 open suggestions; wait for the author to decide some), `"failed"` (anything else, including a malformed suggestion). |
 | `message`      | string? | Human-readable detail. |
 
@@ -355,8 +355,8 @@ edit. For a fix the author didn't ask for, suggest.
 
 | Field          | Type    | Notes |
 |----------------|---------|-------|
-| `ok`           | boolean | `true` when the edit was filed, whether or not it was made. |
-| `suggestionId` | string? | Its suggestion's id. |
+| `ok`           | boolean | `true` when the host tried the edit, whether or not it was made. |
+| `suggestionId` | string? | Its suggestion's id, only when `status` is `"applied"`: an edit that isn't made keeps no suggestion. |
 | `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. Only an applied edit is kept. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
 | `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, or the author may not edit what it changes), `"not_open"`, `"failed"`. |
@@ -402,6 +402,8 @@ the Skillable lab platform does in a lab author's own view.
 |---------------|---------|-------|
 | `ok`          | boolean | `true` when the suggestions were read. |
 | `suggestions` | array   | Each `{ suggestionId, target, current, proposed, reason }`, as `agent.instructions.suggest.request` gives them. |
+| `reason`      | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off), `"failed"` (the suggestions couldn't be read). |
+| `message`     | string? | Human-readable detail. |
 
 ### `agent.instructions.suggestions.apply.request`
 
@@ -410,7 +412,9 @@ Ask the host to apply an open suggestion, as the author pressing
 suggestion, that the author pressed. The payload is
 `{ "suggestionId": "..." }`. The card, the page and the lab go as when
 the author presses it there, and the decision also reaches you as
-`host.instructions.suggestionDecided`. Only for a host that lists
+`host.instructions.suggestionDecided`. A failed Apply decides nothing:
+the suggestion stays open, no `host.instructions.suggestionDecided`
+follows, and the response says it failed. Only for a host that lists
 `host.instructions.suggestions.apply.response` in its capabilities, as
 the Skillable lab platform does in a lab author's own view. Send it
 only when the author pressed your button: never apply a suggestion on
@@ -422,7 +426,7 @@ your own.
 |----------------|---------|-------|
 | `ok`           | boolean | `true` when the host decided it, whether or not the edit was made. |
 | `suggestionId` | string? | As given. |
-| `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. A failed one stays open. |
+| `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. A failed one stays open, and no `host.instructions.suggestionDecided` follows it. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
 | `reason`       | string? | When `ok` is `false`: `"not_open"` (it was decided, or isn't one this page shows), `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
 
@@ -433,7 +437,7 @@ applies, with its current and proposed text and no decisions, for the
 author to read in context before they apply it in your UI. The payload is
 `{ "edits": [...] }`, each edit as `agent.instructions.suggest.request`
 gives one. One edit opens at its place; several open the first, with the
-host's arrows between them. One change at a time: another replaces it. Only for a host that lists
+host's arrows between them. One change at a time: another replaces it. An empty `edits` is refused with `"not_allowed"`. Only for a host that lists
 `host.instructions.edit.preview.response` in its capabilities, as the
 Skillable lab platform does in a lab author's own view.
 
@@ -450,8 +454,9 @@ The author pressed **Apply** or **Cancel** on a preview's card in the
 lab: `{ "decision": "apply" | "cancel" }`, for the whole change. Act on
 it as on your own Apply or Cancel: send each edit with
 `agent.instructions.edit.request` and then close the preview, or drop the
-change. The host takes the previews away at once on Cancel, and waits for
-your close on Apply.
+change. The host takes the previews away at once on Cancel, and on Apply
+once it has made the first of the change's edits, applied or not, so
+don't count on them staying until your close.
 
 ### `agent.instructions.edit.preview.close.request`
 
