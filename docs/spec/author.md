@@ -243,8 +243,9 @@ lab's authors, so it outlives the session.
 
 - **In author mode**, with the author's rights to edit what the
   suggestion changes, the host also draws a card where the edit applies,
-  showing the current and proposed text with **Apply**, **Mark fixed**
-  and **Dismiss**. Apply makes the edit in the lab. Mark fixed records
+  showing the current and proposed text with **Apply** (only with the
+  policy's `editLab` on), **Mark fixed** and **Dismiss**. Apply makes
+  the edit in the lab. Mark fixed records
   that the author fixed it themselves, and changes nothing. The card is
   the host's own; the agent can't press it, though your own UI may
   offer the author an Apply button that asks the host to press the
@@ -262,6 +263,12 @@ lab's authors, so it outlives the session.
   filed silently, for the lab's inbox, where an author accepts or
   dismisses it later. Don't tell a learner you filed one, unless it
   helps them.
+- **Open suggestions are two groups, lab-wide** (every launch of the
+  lab): the author's, from the author's chat and QA runs, and
+  learners', from learners' agents. Each holds at most 50 open. A
+  learner's agent's suggestion for the same spot as another learner's
+  open one, from any launch, merges with it; it never merges with the
+  author's, and the author's merge only with the author's.
 - **During a QA run** a suggestion belongs to the run. Give it the
   run's `runId` and the `findingId` of the finding it fixes, and the
   run's record links the two. See [qa.md](./qa.md#4-findings-and-severity).
@@ -275,12 +282,12 @@ instructions document, activities included. Allowed when the policy's
 | Field       | Type    | Notes |
 |-------------|---------|-------|
 | `target`    | object  | Where the edit applies: `{ kind: "instructions", page }`, with the **zero-based** page, or `{ kind: "activity", alias }`. |
-| `current`   | string  | For a page: the exact text to replace, as the page's markdown source has it (not the rendered text), which must occur on the page exactly once. For an activity: its current values, as JSON text. Not empty. At most 16000 characters. |
+| `current`   | string  | For a page: the exact text to replace, as the page's markdown source has it (not the rendered text), which must occur on the page exactly once. For an activity: the current values of the fields the patch changes, by the same names, as `host.activities.list.response` gives them, as JSON text; the host compares only those with the activity before applying, and answers `stale` when they no longer match. Not empty. At most 16000 characters. |
 | `proposed`  | string or object | For a page: the replacement text. For an activity: a JSON merge patch object over its definition's fields. At most 16000 characters as JSON. |
 | `reason`    | string  | Why, in a sentence or two the author reads on the card. At most 2000 characters. |
 | `runId`     | string? | The QA run this belongs to. At most 64 characters. |
 | `findingId` | string? | The run's finding this fixes. At most 64 characters. |
-| `suggestionId` | string? | An open suggestion of the lab's that this edit improves, as `host.instructions.suggestions.list.response` gives it: the host files the edit in its place, so the author has one suggestion, not two. |
+| `suggestionId` | string? | An open suggestion of the lab's that this edit improves, as `host.instructions.suggestions.list.response` gives it: the host files the edit in its place, so the author has one suggestion, not two. A learner's agent can't name one: refused with `not_allowed`, and its suggestions only ever update learners'. |
 
 The host checks the whole suggestion and never cuts it, since a cut
 find would match something else. A suggestion that doesn't fit is
@@ -298,7 +305,7 @@ include it is in the `reason`, or report it as a finding.
 | `ok`           | boolean | `true` when the suggestion was stored. |
 | `suggestionId` | string? | Its id, a string. `host.instructions.suggestionDecided` carries the same id. |
 | `status`       | string? | `"open"`, or `"dismissed"` when the author dismissed the same fix at the same spot before: it isn't filed again, `suggestionId` is the dismissed suggestion's, and no card is drawn. |
-| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off), `"not_open"` (the `suggestionId` it improves is no longer open), `"too_many"` (the lab instance holds 50 open suggestions; wait for the author to decide some), `"failed"` (anything else, including a malformed suggestion). |
+| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off, or a learner's agent gave a `suggestionId`), `"not_open"` (the `suggestionId` it improves is no longer open), `"too_many"` (its group, the author's or learners', holds 50 open suggestions across the lab; wait for the author to decide some), `"failed"` (anything else, including a malformed suggestion). |
 | `message`      | string? | Human-readable detail. |
 
 ### `host.instructions.suggestionDecided`
@@ -310,12 +317,12 @@ decisions made later in the inbox don't reach the agent.
 | Field          | Type    | Notes |
 |----------------|---------|-------|
 | `suggestionId` | string  | As in the response that stored it. |
-| `status`       | string  | `"applied"` (the author pressed Apply and the edit was saved to the lab), `"accepted"` (the author marked it fixed: they fixed it themselves, and nothing was changed for them), `"stale"` (the text to replace is no longer on the page exactly once, or the lab changed while the edit was saved, so nothing changed), `"failed"` (the edit couldn't be made), `"dismissed"`. Receivers must tolerate unknown values. |
+| `status`       | string  | `"applied"` (the author pressed Apply and the edit was saved to the lab), `"accepted"` (the author marked it fixed: they fixed it themselves, and nothing was changed for them), `"stale"` (the text to replace is no longer on the page exactly once, an activity's fields the patch changes no longer match `current`, or the lab changed while the edit was saved, so nothing changed), `"failed"` (the edit couldn't be made), `"dismissed"`. Receivers must tolerate unknown values. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong, written so you can act on it. |
 
 After `"applied"`, read the page or list the activities again before
-you quote them. After `"stale"`, read the page again before you suggest
-anything more for it.
+you quote them. After `"stale"`, read the page or list the activities
+again before you suggest anything more for it.
 
 An activity edit is applied to the activity's definition as
 `host.activities.list.response` gives it at `"full"`. Its `scripts` and
@@ -390,8 +397,10 @@ does.
 
 Ask the host for the lab's open suggestions, from this launch and
 earlier ones of the same instructions, before you suggest or make
-edits: when an open one covers the same problem, leave it be, or give
-its `suggestionId` with your better edit so it is improved in place.
+edits. It leaves out learners' agents' suggestions, which the author
+sees in the lab's inbox. When an open one covers the same problem,
+leave it be, or give its `suggestionId` with your better edit so it is
+improved in place.
 The payload is `{}`. Only for a host that lists
 `host.instructions.suggestions.list.response` in its capabilities, as
 the Skillable lab platform does in a lab author's own view.
@@ -402,7 +411,7 @@ the Skillable lab platform does in a lab author's own view.
 |---------------|---------|-------|
 | `ok`          | boolean | `true` when the suggestions were read. |
 | `suggestions` | array   | Each `{ suggestionId, target, current, proposed, reason }`, as `agent.instructions.suggest.request` gives them. |
-| `reason`      | string? | When `ok` is `false`: `"not_allowed"` (the policy's `suggestEdits` is off), `"failed"` (the suggestions couldn't be read). |
+| `reason`      | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, or a user who may not edit the lab), `"failed"` (the suggestions couldn't be read). |
 | `message`     | string? | Human-readable detail. |
 
 ### `agent.instructions.suggestions.apply.request`

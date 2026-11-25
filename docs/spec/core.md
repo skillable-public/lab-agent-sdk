@@ -1037,7 +1037,7 @@ These reasons apply across areas:
 | `too_many` | A limit on stored items is reached, such as open suggestions or signals for the lab. | Stop sending that kind of item for this lab. |
 | `already_answered` | The activity was already submitted and takes no more attempts, or a QA run already submitted it. | Don't resubmit. Read the result instead. |
 | `not_supported` | The host, this lab or this console can't do it at all. | Treat it as unavailable for the rest of the session, unless the section says it applies to the request only. |
-| `stale` | The request depends on a screenshot, or text, that no longer matches what is on screen or on the page. | Take a new screenshot, or read the page again, and retry. |
+| `stale` | The request depends on a screenshot, text or an activity's values that no longer match what is on screen, on the page or in the activity. | Take a new screenshot, or read the page or list the activities again, and retry. |
 | `failed` | Anything else, including a malformed request. | Read `message`; fix the request or give up. |
 
 Some requests add reasons of their own, such as `not_available`
