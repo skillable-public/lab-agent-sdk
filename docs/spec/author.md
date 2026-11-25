@@ -348,8 +348,8 @@ In a build run, send it at once, since starting the run was the author's
 approval. In a QA run it is refused: a QA run only suggests, giving each
 fix with its finding.
 
-Allowed only in the author's own view, and only for what the author may
-edit. For a fix the author didn't ask for, suggest.
+Allowed only in the author's own view, only with `editLab` on, and only
+for what the author may edit. For a fix the author didn't ask for, suggest.
 
 ### `host.instructions.edit.response`
 
@@ -359,7 +359,7 @@ edit. For a fix the author didn't ask for, suggest.
 | `suggestionId` | string? | Its suggestion's id, only when `status` is `"applied"`: an edit that isn't made keeps no suggestion. |
 | `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. Only an applied edit is kept. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
-| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, or the author may not edit what it changes), `"not_open"`, `"failed"`. |
+| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, with `editLab` off, or the author may not edit what it changes), `"not_open"`, `"failed"`. |
 
 After `"applied"`, read the page or list the activities again before
 your next edit to them.
@@ -416,7 +416,8 @@ the author presses it there, and the decision also reaches you as
 the suggestion stays open, no `host.instructions.suggestionDecided`
 follows, and the response says it failed. Only for a host that lists
 `host.instructions.suggestions.apply.response` in its capabilities, as
-the Skillable lab platform does in a lab author's own view. Send it
+the Skillable lab platform does in a lab author's own view with `editLab`
+on. Send it
 only when the author pressed your button: never apply a suggestion on
 your own.
 
@@ -428,7 +429,7 @@ your own.
 | `suggestionId` | string? | As given. |
 | `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. A failed one stays open, and no `host.instructions.suggestionDecided` follows it. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
-| `reason`       | string? | When `ok` is `false`: `"not_open"` (it was decided, or isn't one this page shows), `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
+| `reason`       | string? | When `ok` is `false`: `"not_open"` (it was decided, or isn't one this page shows), `"not_allowed"` (`editLab` is off, or the author may not edit what it changes), `"failed"`. |
 
 ### `agent.instructions.edit.preview.request`
 
@@ -439,14 +440,14 @@ author to read in context before they apply it in your UI. The payload is
 gives one. One edit opens at its place; several open the first, with the
 host's arrows between them. One change at a time: another replaces it. An empty `edits` is refused with `"not_allowed"`. Only for a host that lists
 `host.instructions.edit.preview.response` in its capabilities, as the
-Skillable lab platform does in a lab author's own view.
+Skillable lab platform does in a lab author's own view with `editLab` on.
 
 ### `host.instructions.edit.preview.response`
 
 | Field     | Type    | Notes |
 |-----------|---------|-------|
 | `ok`      | boolean | `true` when the preview is drawn. |
-| `reason`  | string? | When `ok` is `false`: `"not_allowed"` (the author may not edit what it changes), `"failed"`. |
+| `reason`  | string? | When `ok` is `false`: `"not_allowed"` (`editLab` is off, or the author may not edit what it changes), `"failed"`. |
 
 ### `host.instructions.edit.preview.decided`
 

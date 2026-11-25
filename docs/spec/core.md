@@ -1003,6 +1003,7 @@ object leaves out is off, and a number it leaves out is no limit.
 | `setVariables` | `off`, `on` | Setting lab variables. Author only. |
 | `evaluateActivities` | `off`, `on` | Evaluating and answering activities. Author only. |
 | `suggestEdits` | `off`, `on` | Filing suggested edits. |
+| `editLab` | `off`, `on` | Changing the lab: your edits, previews of them, and applying suggested edits, yours or the author's in the host's view. With `off`, suggestions are applied elsewhere, such as in Studio. Author only. |
 | `pasteImages` | `off`, `on` | Pasting images into your chat. The host can't see your UI, so this is yours to enforce; it is also signed as `agent_paste_images`. |
 | `attachDocuments` | `off`, `on` | Attaching documents to your chat. Yours to enforce, as `pasteImages` is; it is also signed as `agent_attach_documents`. |
 | `learnerNotice` | `required`, `notRequired` | Whether the learner accepted a consent notice before your tab opened. The host shows it; your iframe loads only once it is accepted. |
