@@ -366,7 +366,7 @@ for what the author may edit. For a fix the author didn't ask for, suggest.
 | `suggestionId` | string? | Its suggestion's id, only when `status` is `"applied"`: an edit that isn't made keeps no suggestion. |
 | `status`       | string? | `"applied"`, `"stale"` or `"failed"`, as in `host.instructions.suggestionDecided`. Only an applied edit is kept. |
 | `message`      | string? | For `"stale"` and `"failed"`, what went wrong. |
-| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, with `editLab` off, or the author may not edit what it changes), `"not_open"`, `"failed"`. |
+| `reason`       | string? | When `ok` is `false`: `"not_allowed"` (outside the author's own view, during a QA run, with `editLab` off, or the author may not edit what it changes), `"not_open"` (it was decided, isn't one of the lab's open suggestions the list gives, or targets the other kind), `"failed"`. |
 
 After `"applied"`, read the page or list the activities again before
 your next edit to them.
