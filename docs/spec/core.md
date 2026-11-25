@@ -698,7 +698,7 @@ The host, in response (abridged):
       "mode": "mentor",
       "prompts": { "organization": "Be encouraging.", "lab": null },
       "qa": { "allowed": false },
-      "policy": { "screenshots": "on", "showOnScreen": "on", "actInEnvironment": "ask", "offerAllowForLab": "on", "actionsPerRequest": 10, "activities": "question", "suggestEdits": "on", "pasteImages": "off", "attachDocuments": "off", "learnerNotice": "required", "scope": "lab", "typeCredentials": "off", "runCommands": "off", "checkTasks": "off", "setVariables": "off", "evaluateActivities": "off", "applyEdits": "off", "qaRuns": "off" },
+      "policy": { "screenshots": "on", "showOnScreen": "on", "actInEnvironment": "ask", "offerAllowForLab": "on", "actionsPerRequest": 10, "activities": "question", "suggestEdits": "on", "pasteImages": "off", "attachDocuments": "off", "learnerNotice": "required", "scope": "lab", "typeCredentials": "off", "runCommands": "off", "checkTasks": "off", "setVariables": "off", "evaluateActivities": "off", "qaRuns": "off" },
       "qaRequest": null,
       "challengePrompt": null
     }
@@ -1003,7 +1003,7 @@ object leaves out is off, and a number it leaves out is no limit.
 | `setVariables` | `off`, `on` | Setting lab variables. Author only. |
 | `evaluateActivities` | `off`, `on` | Evaluating and answering activities. Author only. |
 | `suggestEdits` | `off`, `on` | Filing suggested edits. |
-| `applyEdits` | `off`, `on`, `direct` | What becomes of suggested edits in the author's own view. `on`: a card with Apply, Mark fixed and Dismiss. `direct`: the cards, and you may also edit the lab yourself with `agent.instructions.edit.request`. Author only. |
+| `editLab` | `off`, `on` | Changing the lab: your edits, previews of them, and applying suggested edits, yours or the author's in the host's view. With `off`, suggestions are applied elsewhere, such as in Studio. Author only. |
 | `pasteImages` | `off`, `on` | Pasting images into your chat. The host can't see your UI, so this is yours to enforce; it is also signed as `agent_paste_images`. |
 | `attachDocuments` | `off`, `on` | Attaching documents to your chat. Yours to enforce, as `pasteImages` is; it is also signed as `agent_attach_documents`. |
 | `learnerNotice` | `required`, `notRequired` | Whether the learner accepted a consent notice before your tab opened. The host shows it; your iframe loads only once it is accepted. |
@@ -1037,7 +1037,7 @@ These reasons apply across areas:
 | `too_many` | A limit on stored items is reached, such as open suggestions or signals for the lab. | Stop sending that kind of item for this lab. |
 | `already_answered` | The activity was already submitted and takes no more attempts, or a QA run already submitted it. | Don't resubmit. Read the result instead. |
 | `not_supported` | The host, this lab or this console can't do it at all. | Treat it as unavailable for the rest of the session, unless the section says it applies to the request only. |
-| `stale` | The request depends on a screenshot, or text, that no longer matches what is on screen or on the page. | Take a new screenshot, or read the page again, and retry. |
+| `stale` | The request depends on a screenshot, text or an activity's values that no longer match what is on screen, on the page or in the activity. | Take a new screenshot, or read the page or list the activities again, and retry. |
 | `failed` | Anything else, including a malformed request. | Read `message`; fix the request or give up. |
 
 Some requests add reasons of their own, such as `not_available`
